@@ -30,12 +30,7 @@ int main(int argc, char *argv[])
     assert(!err);
     err = thread_join(thread1, &retval1);
     assert(!err);
-<<<<<<< HEAD
-    printf("les threads ont terminé en renvoyant '%s' and '%s'\n", (char *)retval1, (char *)retval2);
-
-=======
     printf("les threads ont terminé en renvoyant '%s' and '%s'\n",(char *) retval1, (char *) retval2);
     */
->>>>>>> de44386dbf80e01bb9ecd5c418617762bfc402c4
     return 0;
 }
