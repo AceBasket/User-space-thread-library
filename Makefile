@@ -9,9 +9,12 @@ CC=gcc
 CFLAGS=-Wall -Werror -g
 CPPFLAGS=-I${SRCDIR} -I${TSTDIR}
 
-BIN= contextes
+BIN= thread example
 
-$(OBJDIR)/%.o : $(SRCDIR)/%.c 
+$(OBJDIR)/%.o : $(SRCDIR)/%.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o : $(TSTDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 all : install 
@@ -26,5 +29,5 @@ pthreads :
 
 graph :
 
-install : $(OBJDIR)/${BIN}.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o ${BINDIR}/${BIN}
+install : $(addprefix $(OBJDIR)/, $(addsuffix .o, $(BIN)))
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o ${BINDIR}/example
