@@ -10,7 +10,6 @@ struct thread
 {
     thread_t *thread;
     ucontext_t uc;
-    ucontext_t previous;
     SIMPLEQ_ENTRY(thread)
     entry;
     void *(*func)(void *);
@@ -20,7 +19,33 @@ struct thread
 };
 
 typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
-head_t head = SIMPLEQ_HEAD_INITIALIZER(head);
+head_t head;
+
+__attribute__((__constructor__)) void my_init(){
+    head_t head_ = SIMPLEQ_HEAD_INITIALIZER(head);
+    head=head_;
+    // TO DO FREE THE MALLOC
+    thread_t * main_thread = malloc(sizeof(thread_t));
+    thread_create(main_thread,NULL,NULL);
+}
+
+void thread_debug(void){
+    struct thread * t;
+    printf("DEBUGGING\n");
+    SIMPLEQ_FOREACH(t,&head,entry){
+        printf("%p\n",t->thread);
+    }
+    printf("END DEBUGGING\n\n");
+}
+
+int len_queue(void){
+    struct thread * t;
+    int len=0;
+    SIMPLEQ_FOREACH(t,&head,entry){
+        len++;
+    }
+    return len;
+}
 
 extern thread_t thread_self(void)
 {
@@ -34,6 +59,7 @@ struct thread *get_last_queue_element()
     return last;
 }
 
+// Current thread placed at the end of the run queue
 extern int thread_yield(void)
 {
     if (SIMPLEQ_EMPTY(&head))
@@ -42,21 +68,36 @@ extern int thread_yield(void)
     }
     struct thread *current = get_last_queue_element();
     ucontext_t uc_current = current->uc;
+    
+    if (len_queue()==1){ 
+        return EXIT_SUCCESS;
+    }
+    
     SIMPLEQ_REMOVE(&head, current, thread, entry);
     if (SIMPLEQ_EMPTY(&head))
     {
         return -1;
     }
+    printf("TAIL REMOVED\n");
     struct thread *previous = get_last_queue_element();
     getcontext(&uc_current);
+    printf("GOT CONTEXT\n");
     uc_current.uc_stack.ss_size = 64 * 1024;
     uc_current.uc_stack.ss_sp = malloc(uc_current.uc_stack.ss_size);
-    uc_current.uc_link = &previous->uc;
 
-    swapcontext(&previous->uc, &uc_current);
-    SIMPLEQ_REMOVE(&head, previous, thread, entry);
-    SIMPLEQ_INSERT_TAIL(&head, current, entry);
-    SIMPLEQ_INSERT_TAIL(&head, previous, entry);
+    SIMPLEQ_INSERT_HEAD(&head, current, entry);
+
+    uc_current.uc_link = NULL;
+    SIMPLEQ_NEXT(current,entry)->uc.uc_link=&uc_current;
+    printf("BEFORE CONTEXT SWAPPED\n");
+    printf("%p\n",&uc_current);
+    printf("%p\n",&previous->uc);
+    swapcontext(&uc_current,&previous->uc);
+    printf("CONTEXT SWAPPED\n");
+
+    // SIMPLEQ_REMOVE(&head, previous, thread, entry);
+    // SIMPLEQ_INSERT_TAIL(&head, previous, entry);
+    thread_debug();
     return EXIT_SUCCESS;
 }
 
@@ -80,8 +121,8 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
         free(new_thread);
         return -1;
     };
+    
 
-    new_thread->uc.uc_link = &(new_thread->previous);
     makecontext(&new_thread->uc, (void (*)(void))meta_func, 1, funcarg);
 
     new_thread->func = func;
@@ -89,6 +130,12 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 
     SIMPLEQ_INSERT_HEAD(&head, new_thread, entry);
 
+    new_thread->uc.uc_link = NULL;
+    if (len_queue()>1){
+        SIMPLEQ_NEXT(new_thread,entry)->uc.uc_link=&new_thread->uc;
+    }
+
+    thread_debug();
     return EXIT_SUCCESS;
 }
 
