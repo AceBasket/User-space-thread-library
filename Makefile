@@ -21,7 +21,10 @@ get_args=$(shell cat tests.csv | grep $(patsubst $(BINDIR)/%,%,$(1)) | cut -d ";
 
 all : install
 
-install  : threads pthreads
+install  :  threads pthreads
+
+$(BINDIR), $(LIBDIR) :
+	mkdir -p $@ $(OBJDIR)
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -35,7 +38,7 @@ $(OBJDIR)/%-pthread.o : $(TSTDIR)/%.c
 $(OBJDIR)/%.o : $(TSTDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o
+$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o $(LIBDIR)
 	$(CC) --shared -o $@ $<
 
 check : install
@@ -45,14 +48,14 @@ valgrind : install
 	$(foreach var,$(TST), LD_LIBRARY_PATH=./$(LIBDIR) $(VALGRIND) ./$(var) $(call get_args,$(var));)
 
 $(TST) : $(BINDIR)/% : $(OBJDIR)/%.o $(LIBDIR)/libthread.so 
-	$(CC) $(CFLAGS) $(LDLIBS) $(LDFLAGS) $(LIBDIR)/libthread.so $< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBDIR)/libthread.so $< -o $@ $(LDLIBS) 
 
 $(PTHREAD_TST) : $(BINDIR)/%-pthread : $(OBJDIR)/%-pthread.o
-	$(CC) $(CFLAGS) -DUSE_PTHREAD -lpthread $< -o $@
+	$(CC) $(CFLAGS) -DUSE_PTHREAD $< -o $@ -lpthread
 
-threads : $(TST)
+threads : $(BINDIR) $(TST)
 	
-pthreads : $(PTHREAD_TST) 
+pthreads : $(BINDIR) $(PTHREAD_TST) 
 
 graph :
 
