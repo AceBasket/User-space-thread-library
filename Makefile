@@ -19,14 +19,11 @@ get_args=$(shell cat tests.csv | grep $(patsubst $(BINDIR)/%,%,$(1)) | cut -d ";
 
 .PHONY : all install check valgrind
 
-all : dir install
-
-dir:
-	mkdir -p $(BINDIR) $(LIBDIR) $(OBJDIR)
+all : install
 
 install  :  threads pthreads
 
-$(BINDIR), $(LIBDIR) :
+$(BINDIR) $(LIBDIR) :
 	mkdir -p $@ $(OBJDIR)
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
