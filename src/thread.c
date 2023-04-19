@@ -79,7 +79,7 @@ extern int thread_yield(void) {
         return EXIT_SUCCESS;
     }
     // printf("current queue before switching: \n");
-    // thread_debug();
+    thread_debug();
     // printf("1 head last = %p\n", **(&head.sqh_last));
 
 
@@ -159,10 +159,11 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
         SIMPLEQ_NEXT(new_thread, entry)->uc.uc_link = &new_thread->uc;
     }
 
-    // struct thread *current = get_last_queue_element();
-    // swapcontext(&current->uc, &new_thread->uc);
-
-    // thread_debug();
+    thread_debug();
+    if (func != NULL) {
+        struct thread *current = get_last_queue_element();
+        swapcontext(&current->uc, &new_thread->uc);
+    }
     return EXIT_SUCCESS;
 }
 
