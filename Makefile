@@ -13,6 +13,8 @@ LDFLAGS=-L$(ROOTDIR)/install/lib
 LDLIBS=-lthread
 VALGRIND=valgrind --leak-check=full --show-reachable=yes --track-origins=yes
 
+GRAPH_FILES?=
+
 TST=$(addprefix $(BINDIR)/, $(patsubst %.c,%,$(shell ls $(ROOTDIR)/$(TSTDIR))))
 PTHREAD_TST=$(addsuffix -pthread, $(TST))
 get_args=$(shell cat tests.csv | grep $(patsubst $(BINDIR)/%,%,$(1)) | cut -d ";" -f 2)
@@ -57,7 +59,9 @@ threads : $(BINDIR) $(TST)
 	
 pthreads : $(BINDIR) $(PTHREAD_TST) 
 
-graph :
+graphs : threads pthreads
+	python3 graphs.py $(GRAPH_FILES)
+
 
 clean : 
 	rm -R ${BINDIR}/* ${LIBDIR}/* ${OBJDIR}/*
