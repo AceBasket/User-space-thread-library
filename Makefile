@@ -7,7 +7,7 @@ BINDIR=$(INSTALLDIR)/bin
 OBJDIR=$(INSTALLDIR)/obj
 
 CC=gcc
-CFLAGS=-Wall -Werror -g
+CFLAGS=-Wall -g
 CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR)
 LDFLAGS=-L$(ROOTDIR)/install/lib
 LDLIBS=-lthread

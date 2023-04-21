@@ -35,10 +35,10 @@ int main() {
 
     err = thread_create(&th1, thfunc, "fils1");
     assert(!err);
-    // err = thread_create(&th2, thfunc, "fils2");
-    // assert(!err);
-    // err = thread_create(&th3, thfunc, "fils3");
-    // assert(!err);
+    err = thread_create(&th2, thfunc, "fils2");
+    assert(!err);
+    err = thread_create(&th3, thfunc, "fils3");
+    assert(!err);
     /* des switchs avec l'autre thread */
     for (i = 0; i < 20; i++) {
         printf("%d le main yield vers un fils\n", i);
