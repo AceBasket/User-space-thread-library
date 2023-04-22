@@ -12,10 +12,8 @@ dir = "install/bin"
 files = os.listdir(dir)
 # adding files to measure manually
 if (len(sys.argv) > 1):
-	files = []
-	for file in sys.argv[1:]:
-		files.append(file)
-		files.append(file + "-pthread")
+	files_tmp = files.copy()
+	files = [file for file in files_tmp if file[:2] in sys.argv[1:]]
 
 files.sort()
 
@@ -28,6 +26,7 @@ for file in files:
 
 # converting dictionnary to array
 files_by_id = list(files_by_id.values())
+
 
 def run_program(name: str, args: list[int]):
 	os.system("LD_LIBRARY_PATH=./install/lib ./" + name + " " + " ".join(str(arg) for arg in args) + " > /dev/null")
@@ -88,7 +87,7 @@ fig, axs = plt.subplots(nb_rows, nb_cols, layout='constrained')
 plot_idx = 0
 set_arg_value = 3
 
-pp = PdfPages('foo.pdf')
+pp = PdfPages('results.pdf')
 
 max_thread = 11
 
