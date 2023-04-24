@@ -57,17 +57,20 @@ def plot_no_arg(data: dict, ax, fname: str):
 	ax.set_title(fname)
 	return ax
 
-def plot_with_args_pdf(data: dict, fname: str, args_name: list[str], args_value: list[int]):
+def plot_with_args_pdf(data: dict, fname: str, args_name: list[str], args_value: list[int], idx_fixed_arg: int = None):
 	fig = plt.figure()
 	plt.plot(data['thread'], c='b', label="thread")
 	plt.plot(data['pthread'], c='r', label="pthread")
 	plt.legend()
 	title = fname
 	if len(args_value) == 2:
-		title += args_name[1] + " = " + args_value[1]
-	plt.title(fname)
+		title += " " + args_name[idx_fixed_arg] + " = " + str(args_value[idx_fixed_arg])
+	plt.title(title)
 	plt.ylabel("Temps (/s)")
-	plt.xlabel("Nb threads")
+	if idx_fixed_arg == None:
+		plt.xlabel(args_name[0])
+	else:
+		plt.xlabel(args_name[(idx_fixed_arg+1)%2])
 	return fig
 
 def plot_with_args(data: dict, ax, fname: str, args_name: list[str], args_value: list[int]):
@@ -85,11 +88,12 @@ nb_cols = 3
 nb_rows = len(files_by_id)//nb_cols if (len(files_by_id) > nb_cols) else 1
 fig, axs = plt.subplots(nb_rows, nb_cols, layout='constrained')
 plot_idx = 0
-set_arg_value = 3
 
 pp = PdfPages('results.pdf')
 
+set_arg_value = 5
 max_thread = 11
+max_yield = 11
 
 for [f_thread, f_pthread] in files_by_id:
 	f_thread_name = "install/bin/" + f_thread
@@ -100,25 +104,23 @@ for [f_thread, f_pthread] in files_by_id:
 	ax = axs[col_idx] if nb_rows == 1 else axs[row_idx, col_idx]
 	plot_idx+=1
 	if (nb_args == 0):
-		# data['thread'].append(measure_time(f_thread_name))
 		data['thread'].append(measure_time(f_thread_name))
 		data['pthread'].append(measure_time(f_pthread_name))
 		pp.savefig(plot_no_arg_pdf(data, f_thread))
 	elif (nb_args == 1):
-		for i in range(1, max_thread):
-			# data['thread'].append(measure_time(f_thread_name, [i]))
-			data['thread'].append(measure_time(f_thread_name, [i]))
-			data['pthread'].append(measure_time(f_pthread_name, [i]))
-		# plot_with_args(data, ax, f_thread,['nb threads'], [i]).plot()
-		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads'], [i]))
+		for nb_threads in range(1, max_thread):
+			data['thread'].append(measure_time(f_thread_name, [nb_threads]))
+			data['pthread'].append(measure_time(f_pthread_name, [nb_threads]))
+		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads'], [nb_threads]))
 	else:
-		for i in range(1, max_thread):
-			# data['thread'].append(measure_time(f_thread_name, [i, set_arg_value]))
-			data['thread'].append(measure_time(f_thread_name, [i, set_arg_value]))
-			data['pthread'].append(measure_time(f_pthread_name, [i, set_arg_value]))
-		# plot_with_args(data, ax, f_thread, ['nb threads', 'nb yields'], [i, set_arg_value]).plot()
-		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads'], [i]))
-
-# plt.show()
-
+		for nb_threads in range(1, max_thread):
+			data['thread'].append(measure_time(f_thread_name, [nb_threads, set_arg_value]))
+			data['pthread'].append(measure_time(f_pthread_name, [nb_threads, set_arg_value]))
+		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads', 'nb yields'], [nb_threads, set_arg_value], 1))
+		data['thread'].clear()
+		data['pthread'].clear()
+		for nb_yields in range(1, max_yield):
+			data['thread'].append(measure_time(f_thread_name, [set_arg_value, nb_yields]))
+			data['pthread'].append(measure_time(f_thread_name, [set_arg_value, nb_yields]))
+		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads', 'nb yields'], [set_arg_value, nb_yields], 0))
 pp.close()
