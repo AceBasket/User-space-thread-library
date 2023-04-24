@@ -101,20 +101,20 @@ for [f_thread, f_pthread] in files_by_id:
 	plot_idx+=1
 	if (nb_args == 0):
 		# data['thread'].append(measure_time(f_thread_name))
-		data['thread'].append(measure_time(f_pthread_name))
+		data['thread'].append(measure_time(f_thread_name))
 		data['pthread'].append(measure_time(f_pthread_name))
 		pp.savefig(plot_no_arg_pdf(data, f_thread))
 	elif (nb_args == 1):
 		for i in range(1, max_thread):
 			# data['thread'].append(measure_time(f_thread_name, [i]))
-			data['thread'].append(measure_time(f_pthread_name, [i]))
+			data['thread'].append(measure_time(f_thread_name, [i]))
 			data['pthread'].append(measure_time(f_pthread_name, [i]))
 		# plot_with_args(data, ax, f_thread,['nb threads'], [i]).plot()
 		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads'], [i]))
 	else:
 		for i in range(1, max_thread):
 			# data['thread'].append(measure_time(f_thread_name, [i, set_arg_value]))
-			data['thread'].append(measure_time(f_pthread_name, [i, set_arg_value]))
+			data['thread'].append(measure_time(f_thread_name, [i, set_arg_value]))
 			data['pthread'].append(measure_time(f_pthread_name, [i, set_arg_value]))
 		# plot_with_args(data, ax, f_thread, ['nb threads', 'nb yields'], [i, set_arg_value]).plot()
 		pp.savefig(plot_with_args_pdf(data, f_pthread, ['nb trheads'], [i]))
