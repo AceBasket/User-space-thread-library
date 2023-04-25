@@ -32,7 +32,6 @@ __attribute__((__constructor__)) void my_init() {
     head_t head_ = SIMPLEQ_HEAD_INITIALIZER(head);
     head = head_;
     thread_create(&main_thread, NULL, NULL);
-
 }
 
 void thread_debug(void) {
