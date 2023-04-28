@@ -60,32 +60,32 @@ int len_run_queue(void) {
 
 struct thread *go_back_to_main_thread(void) {
     /* Assumes that main thread is still in queue */
-    struct thread *main_thread = SIMPLEQ_LAST(&head_sleep_queue, thread, entry);
-    SIMPLEQ_REMOVE(&head_sleep_queue, main_thread, thread, entry); // remove main thread from the sleep queue
-    SIMPLEQ_INSERT_TAIL(&head_run_queue, main_thread, entry); // insert it into the run queue
+    struct thread *main_thread = SIMPLEQ_FIRST(&head_sleep_queue);
+    SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry); // remove main thread from the sleep queue
+    SIMPLEQ_INSERT_HEAD(&head_run_queue, main_thread, entry); // insert it into the run queue
     main_thread->status = RUNNING; // mark it as running
     return main_thread;
 }
 
-struct thread *get_last_run_queue_element(void) {
-    /* get the last element that is running in the queue, all of the finished threads go back to the beginning of the queue */
-    struct thread *last = SIMPLEQ_LAST(&head_run_queue, thread, entry);
-    while (last->status == FINISHED) {
-        SIMPLEQ_REMOVE(&head_run_queue, last, thread, entry); // remove finished thread from the run queue
-        if (last->thread == main_thread) {
+struct thread *get_first_run_queue_element(void) {
+    /* get the first element that is running in the queue, all of the finished threads go back to the beginning of the queue */
+    struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
+    while (first->status == FINISHED) {
+        SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry); // remove finished thread from the run queue
+        if (first->thread == main_thread) {
             // if the main thread is finished, we need to keep it in an accessible place (--> end of sleep queue)
-            SIMPLEQ_INSERT_TAIL(&head_sleep_queue, last, entry);
+            SIMPLEQ_INSERT_HEAD(&head_sleep_queue, first, entry);
         } else {
-            SIMPLEQ_INSERT_HEAD(&head_sleep_queue, last, entry); // insert it into the sleep queue
+            SIMPLEQ_INSERT_TAIL(&head_sleep_queue, first, entry); // insert it into the sleep queue
         }
-        last = SIMPLEQ_LAST(&head_run_queue, thread, entry); // get the new last element of the run queue
+        first = SIMPLEQ_FIRST(&head_run_queue); // get the new first element of the run queue
     }
-    return last;
+    return first;
 }
 
 extern thread_t thread_self(void) {
-    struct thread *last = SIMPLEQ_LAST(&head_run_queue, thread, entry);
-    return last->thread;
+    struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
+    return first->thread;
 }
 
 // Current thread placed at the beginning of the run queue (--> FIFO)
@@ -95,24 +95,24 @@ extern int thread_yield(void) {
     }
 
     // get the current thread
-    struct thread *current = get_last_run_queue_element();
+    struct thread *current = get_first_run_queue_element();
     if (len_run_queue() == 1) {
         // no need to yield if only one running thread in queue
         return EXIT_SUCCESS;
     }
 
     // remove the current thread from the queue
-    SIMPLEQ_REMOVE(&head_run_queue, current, thread, entry);
+    SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
 
     if (SIMPLEQ_EMPTY(&head_run_queue)) {
         // error if the queue becomes empty
         return -1;
     }
-    SIMPLEQ_INSERT_HEAD(&head_run_queue, current, entry); // add the current thread at the beginning of the queue
+    SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry); // add the current thread at the beginning of the queue
 
 
     // swap context with the next thread in the queue
-    struct thread *next_executed_thread = get_last_run_queue_element();
+    struct thread *next_executed_thread = get_first_run_queue_element();
     swapcontext(&current->uc, &next_executed_thread->uc);
     return EXIT_SUCCESS;
 }
@@ -122,7 +122,7 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current) {
     // should only go here when the thread returns without using thread_exit
     if (len_run_queue() != 1) {
         current->status = FINISHED;
-        struct thread *next_executed_thread = get_last_run_queue_element();
+        struct thread *next_executed_thread = get_first_run_queue_element();
         setcontext(&next_executed_thread->uc);
     }
     if (len_run_queue() == 1) {
@@ -166,12 +166,12 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
 
 
     // add the thread to the queue
-    SIMPLEQ_INSERT_HEAD(&head_run_queue, new_thread_s, entry);
+    SIMPLEQ_INSERT_TAIL(&head_run_queue, new_thread_s, entry);
     return EXIT_SUCCESS;
 }
 
 extern int thread_join(thread_t thread, void **retval) {
-    struct thread *current = get_last_run_queue_element();
+    struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
 
     if (current_thread == thread) {
@@ -222,11 +222,11 @@ extern int thread_join(thread_t thread, void **retval) {
 
 extern void thread_exit(void *retval) {
     /* Mark the thread as finished and switch context to newt thread */
-    struct thread *current = get_last_run_queue_element();
+    struct thread *current = get_first_run_queue_element();
     current->retval = retval;
 
     current->status = FINISHED;
-    struct thread *next_executed_thread = get_last_run_queue_element();
+    struct thread *next_executed_thread = get_first_run_queue_element();
     if (current->thread == main_thread) {
         // if main thread, swap context (will come back here when all threads are finished)
         swapcontext(&current->uc, &next_executed_thread->uc);
@@ -237,8 +237,8 @@ extern void thread_exit(void *retval) {
 
 void free_sleep_queue() {
     while (!SIMPLEQ_EMPTY(&head_sleep_queue)) {
-        struct thread *current = SIMPLEQ_LAST(&head_sleep_queue, thread, entry);
-        SIMPLEQ_REMOVE(&head_sleep_queue, current, thread, entry);
+        struct thread *current = SIMPLEQ_FIRST(&head_sleep_queue);
+        SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);
         VALGRIND_STACK_DEREGISTER(current->valgrind_stackid);
         free(current->uc.uc_stack.ss_sp);
         free(current);
@@ -253,8 +253,8 @@ __attribute__((__destructor__)) void my_end() {
     }
     while (!SIMPLEQ_EMPTY(&head_run_queue)) {
         // remove first thread from queue
-        struct thread *current = SIMPLEQ_LAST(&head_run_queue, thread, entry);
-        SIMPLEQ_REMOVE(&head_run_queue, current, thread, entry);
+        struct thread *current = SIMPLEQ_FIRST(&head_run_queue);
+        SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
         if (current->thread != main_thread) {
             // if not main thread, free the stack
             VALGRIND_STACK_DEREGISTER(current->valgrind_stackid);
