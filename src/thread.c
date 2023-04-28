@@ -32,6 +32,7 @@ __attribute__((__constructor__)) void my_init() {
     head_t head_ = SIMPLEQ_HEAD_INITIALIZER(head);
     head = head_;
     thread_create(&main_thread, NULL, NULL);
+    printf("[%p]INIT\n", thread_self());
 }
 
 void thread_debug(void) {
@@ -54,9 +55,15 @@ int len_queue(void) {
     return len;
 }
 
-extern thread_t thread_self(void) {
-    struct thread *last = SIMPLEQ_LAST(&head, thread, entry);
-    return last->thread;
+struct thread *get_main_thread(void) {
+    /* Assumes that main thread is still in queue */
+    struct thread *t = SIMPLEQ_LAST(&head, thread, entry);
+    while (t->thread != main_thread) {
+        SIMPLEQ_REMOVE(&head, t, thread, entry);
+        SIMPLEQ_INSERT_HEAD(&head, t, entry);
+        t = SIMPLEQ_LAST(&head, thread, entry);
+    }
+    return t;
 }
 
 struct thread *get_last_running_queue_element() {
@@ -68,6 +75,11 @@ struct thread *get_last_running_queue_element() {
         last = SIMPLEQ_LAST(&head, thread, entry);
     }
     return last;
+}
+
+extern thread_t thread_self(void) {
+    struct thread *last = SIMPLEQ_LAST(&head, thread, entry);
+    return last->thread;
 }
 
 // Current thread placed at the beginning of the run queue (--> FIFO)
@@ -106,6 +118,16 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current) {
         current->status = FINISHED;
         struct thread *next_executed_thread = get_last_running_queue_element();
         setcontext(&next_executed_thread->uc);
+    }
+    printf("[%p] calling exit\n", thread_self());
+    if (len_queue() == 1) {
+        // if only one thread left in queue, exit
+        if (thread_self() != main_thread) {
+            // if that thread is not the main thread, return to the context of the main thread (just before exit(EXIT_SUCCESS)) in thread_exit
+            struct thread *main_thread = get_main_thread();
+            setcontext(&main_thread->uc);
+        }
+        exit(EXIT_SUCCESS);
     }
     exit(EXIT_SUCCESS);
 }
@@ -189,10 +211,20 @@ extern void thread_exit(void *retval) {
 
     current->status = FINISHED;
     struct thread *next_executed_thread = get_last_running_queue_element();
+    if (current->thread == main_thread) {
+        // if main thread, swap context (will come back here when all threads are finished)
+        swapcontext(&current->uc, &next_executed_thread->uc);
+        exit(EXIT_SUCCESS);
+    }
     setcontext(&next_executed_thread->uc);
 }
 
 __attribute__((__destructor__)) void my_end() {
+    /* free all the threads */
+    printf("[%p] destructor\n", thread_self());
+    if (SIMPLEQ_EMPTY(&head)) {
+        return;
+    }
     while (!SIMPLEQ_EMPTY(&head)) {
         // remove first thread from queue
         struct thread *current = SIMPLEQ_LAST(&head, thread, entry);
