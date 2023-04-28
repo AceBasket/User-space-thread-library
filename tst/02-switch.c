@@ -43,10 +43,8 @@ int main() {
     for (i = 0; i < 20; i++) {
         printf("%d le main yield vers un fils\n", i);
         err = thread_yield();
-        printf("after main yield\n");
         assert(!err);
     }
-    printf("before main join\n");
     err = thread_join(th3, &res);
     assert(!err);
     assert(res == NULL);
