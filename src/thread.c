@@ -9,6 +9,7 @@
 #include <signal.h>
 
 enum status { RUNNING, FINISHED };
+enum m_status {UNLOCK, LOCK};
 
 struct thread {
     thread_t thread;
@@ -22,8 +23,14 @@ struct thread {
     int valgrind_stackid;
 };
 
+typedef struct {
+    thread_mutex_t mutex;
+    volatile int lock_flag;
+} extended_mutex;
+
 thread_t main_thread; // id of the main thread
 
+int locker=0;
 
 typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
 head_t head_run_queue;
@@ -264,3 +271,27 @@ __attribute__((__destructor__)) void my_end() {
         free(current);
     }
 }
+
+int thread_mutex_init(thread_mutex_t *mutex){
+    mutex->dummy=UNLOCK;
+    return EXIT_SUCCESS;
+}
+
+
+int thread_mutex_destroy(thread_mutex_t *mutex){
+    return EXIT_SUCCESS;
+}
+
+int thread_mutex_lock(thread_mutex_t *mutex){
+    while(mutex->dummy==1){
+        thread_yield();
+    }
+    mutex->dummy=1;
+    return EXIT_SUCCESS;
+}
+
+int thread_mutex_unlock(thread_mutex_t *mutex){
+    mutex->dummy=0;
+    return EXIT_SUCCESS;
+}
+
