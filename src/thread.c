@@ -7,9 +7,10 @@
 #include <stddef.h>
 #include <assert.h>
 #include <signal.h>
+#include <sys/time.h>
 
 enum status { RUNNING, FINISHED };
-enum m_status {UNLOCK, LOCK};
+enum m_status { UNLOCK, LOCK };
 
 struct thread {
     thread_t thread;
@@ -30,7 +31,7 @@ typedef struct {
 
 thread_t main_thread; // id of the main thread
 
-int locker=0;
+int locker = 0;
 
 typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
 head_t head_run_queue;
@@ -88,6 +89,49 @@ struct thread *get_first_run_queue_element(void) {
         first = SIMPLEQ_FIRST(&head_run_queue); // get the new first element of the run queue
     }
     return first;
+}
+
+void sigprof_handler(int signum, siginfo_t *siginfo, void *context) {
+// void sigprof_handler(int signum) {
+    /* Handler for SIGPROF signal */
+    printf("SIGPROF HANDLER\n");
+    thread_yield();
+}
+
+int init_timer(void) {
+    /* Every 10 ms of thread execution, a SIGPROF signal is sent */
+    struct sigaction sa;
+    sigset_t all;
+    sigfillset(&all); // check later : should only handle SIGPROF
+
+    sa.sa_sigaction = sigprof_handler;
+    // sigemptyset(&sa.sa_mask);
+    sa.sa_mask = all;
+    sa.sa_flags = SA_SIGINFO | SA_RESTART;
+    struct sigaction old_sigaction;
+    if (sigaction(SIGPROF, &sa, &old_sigaction) == -1) {
+        perror("sigaction");
+        return EXIT_FAILURE;
+    }
+    struct itimerval timer;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 10000; // 10 miliseconds
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 1; // arms the timer as soon as possible
+
+    printf("TIMER INTIALIZED\n");
+
+    // Enable timer
+    if (setitimer(ITIMER_PROF, &timer, NULL) == -1) {
+        if (sigaction(SIGPROF, &old_sigaction, NULL) == -1) {
+            perror("sigaction");
+            return EXIT_FAILURE;
+        }
+        return EXIT_FAILURE;
+    }
+
+    printf("TIMER ENABLED\n");
+    return EXIT_SUCCESS;
 }
 
 extern thread_t thread_self(void) {
@@ -170,6 +214,10 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
     }
     new_thread_s->func = func;
     new_thread_s->funcarg = funcarg;
+
+    if (init_timer() == EXIT_FAILURE) {
+        return EXIT_FAILURE;
+    }
 
 
     // add the thread to the queue
@@ -272,26 +320,28 @@ __attribute__((__destructor__)) void my_end() {
     }
 }
 
-int thread_mutex_init(thread_mutex_t *mutex){
-    mutex->dummy=UNLOCK;
+int thread_mutex_init(thread_mutex_t *mutex) {
+    mutex->dummy = UNLOCK;
     return EXIT_SUCCESS;
 }
 
 
-int thread_mutex_destroy(thread_mutex_t *mutex){
+int thread_mutex_destroy(thread_mutex_t *mutex) {
     return EXIT_SUCCESS;
 }
 
-int thread_mutex_lock(thread_mutex_t *mutex){
-    while(mutex->dummy==1){
+int thread_mutex_lock(thread_mutex_t *mutex) {
+    while (mutex->dummy == 1) {
         thread_yield();
     }
-    mutex->dummy=1;
+    mutex->dummy = 1;
     return EXIT_SUCCESS;
 }
 
-int thread_mutex_unlock(thread_mutex_t *mutex){
-    mutex->dummy=0;
+int thread_mutex_unlock(thread_mutex_t *mutex) {
+    mutex->dummy = 0;
     return EXIT_SUCCESS;
 }
+
+
 

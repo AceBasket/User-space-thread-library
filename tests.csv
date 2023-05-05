@@ -12,3 +12,4 @@ example;
 51-fibonacci;4
 61-mutex;5
 62-mutex;5
+71-preemption;5

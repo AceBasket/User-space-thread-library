@@ -22,31 +22,30 @@
 #define NB_ITER     100
 #define ITER_LENGTH 1000000
 
-static int    fini  = 0;
+static int    fini = 0;
 static double score = 0;
-static long  *values = NULL;
+static long *values = NULL;
 
-static void * thfunc( void *arg )
-{
+static void *thfunc(void *arg) {
     unsigned long i, j = 0;
     int me = (intptr_t)arg;
 
-    for(i=0; i<NB_ITER;i++) {
-	for(j=0; j<ITER_LENGTH;j++) {
-	    if (fini) {
-		return NULL;
-	    }
-	    values[me]++;
-	}
-	fprintf(stderr, "%ld ", (intptr_t)arg );
+    for (i = 0; i < NB_ITER;i++) {
+        for (j = 0; j < ITER_LENGTH;j++) {
+            if (fini) {
+                return NULL;
+            }
+            values[me]++;
+        }
+        fprintf(stderr, "%ld ", (intptr_t)arg);
+        printf("[%p] values[me] = values[%d] = %ld\n", thread_self(), me, values[me]);
     }
     fini = 1;
 
     return NULL;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     thread_t *th;
     int i, err, nb;
     struct timeval tv1, tv2;
@@ -64,7 +63,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    values = calloc( nb+1, sizeof(long) );
+    values = calloc(nb + 1, sizeof(long));
     if (!values) {
         perror("malloc(values)");
         return -1;
@@ -72,39 +71,38 @@ int main(int argc, char *argv[])
 
     gettimeofday(&tv1, NULL);
     /* on cree tous les threads */
-    for(i=0; i<nb; i++) {
-        err = thread_create(&th[i], thfunc, (void*)((intptr_t)i));
+    for (i = 0; i < nb; i++) {
+        err = thread_create(&th[i], thfunc, (void *)((intptr_t)i));
         assert(!err);
     }
 
     /* On participe au réchauffement climatique */
-    thfunc( (void*)((intptr_t)nb) );
+    thfunc((void *)((intptr_t)nb));
 
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
-    for(i=0; i<nb; i++) {
+    for (i = 0; i < nb; i++) {
         err = thread_join(th[i], NULL);
         assert(!err);
 
-	score += values[i];
+        score += values[i];
     }
 
     gettimeofday(&tv2, NULL);
-    us = (tv2.tv_sec-tv1.tv_sec)*1000000+(tv2.tv_usec-tv1.tv_usec);
+    us = (tv2.tv_sec - tv1.tv_sec) * 1000000 + (tv2.tv_usec - tv1.tv_usec);
 
-    score = score / ( (double)(nb+1) * NB_ITER * ITER_LENGTH );
-    printf("\nscore: %lf\n", score );
+    score = score / ((double)(nb + 1) * NB_ITER * ITER_LENGTH);
+    printf("\nscore: %lf\n", score);
 
     printf("Programme exécuté en %ld us\n", us);
 
     free(th);
     free(values);
 
-    if ( score < .5 ) {
-	return EXIT_FAILURE;
-    }
-    else {
-	printf("Temps attendu pour le programme complet: %e us\n", us / score );
-	return EXIT_SUCCESS;
+    if (score < .5) {
+        return EXIT_FAILURE;
+    } else {
+        printf("Temps attendu pour le programme complet: %e us\n", us / score);
+        return EXIT_SUCCESS;
     }
 }
