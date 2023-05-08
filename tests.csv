@@ -1,15 +1,1 @@
-example;
-01-main;
-02-switch;
-03-equity;
-11-join;
-12-join-main;
-21-create-many;2
-22-create-many-recursive;2
-23-create-many-once;2
-32-switch-many-join;2 1
-33-switch-many-cascade;2 1
-51-fibonacci;4
-61-mutex;5
-62-mutex;5
 71-preemption;5
