@@ -19,8 +19,10 @@
  * - retour sans thread_exit()
  * - thread_join() sans récupération de la valeur de retour
  */
-#define NB_ITER     100
-#define ITER_LENGTH 1000000
+#define NB_ITER     10
+// #define NB_ITER     100
+#define ITER_LENGTH 100
+// #define ITER_LENGTH 1000000
 
 static int    fini = 0;
 static double score = 0;
@@ -37,6 +39,8 @@ static void *thfunc(void *arg) {
             }
             values[me]++;
         }
+        // printf("sizeof values[me] = %ld\n", sizeof(values[me]));
+        // printf("values[me] = %ld\n", values[me]);
         fprintf(stderr, "%ld ", (intptr_t)arg);
         // printf("[%p] values[me] = values[%d] = %ld\n", thread_self(), me, values[me]);
     }
@@ -64,6 +68,16 @@ int main(int argc, char *argv[]) {
     }
 
     values = calloc(nb + 1, sizeof(long));
+    // for (int i_values = 0; i_values < nb + 1; i_values++) {
+    //     values[i_values] = 0;
+    // }
+
+    // int iter = 0;
+    // while (values[iter] == 0) {
+    //     printf("values[%d] = %ld\n", iter, values[iter]);
+    //     iter++;
+    // }
+
     if (!values) {
         perror("malloc(values)");
         return -1;
@@ -78,6 +92,8 @@ int main(int argc, char *argv[]) {
 
     /* On participe au réchauffement climatique */
     thfunc((void *)((intptr_t)nb));
+
+    printf("after thfunc\n");
 
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
