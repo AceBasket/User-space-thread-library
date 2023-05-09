@@ -161,8 +161,8 @@ extern int thread_yield(void) {
 
 void meta_func(void *(*func)(void *), void *args, struct thread *current) {
     /* function that is called by makecontext */
-    block_sigprof();
     current->retval = func(args);
+    block_sigprof();
 
     // printf("[%p] meta_func\n", thread_self());
 
@@ -206,6 +206,13 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
             free(new_thread_s);
             return -1;
         }
+
+        /*  */
+        // if (thread_self() == main_thread) {
+        //     if (init_timer() == EXIT_FAILURE) {
+        //         return EXIT_FAILURE;
+        //     }
+        // }
 
         // initialize stack + create the thread with makecontext
         new_thread_s->uc.uc_stack.ss_size = SIGSTKSZ;
@@ -329,7 +336,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
 
 static void sigprof_handler(int signum, siginfo_t *nfo, void *context) {
     (void)signum;
-    printf("[%p] SIGPROF\n", thread_self());
+    // printf("[%p] SIGPROF\n", thread_self());
     // puts("SIGPROF");
 
     // This code can be useful to change thread context with the context given by signal handler
@@ -365,7 +372,7 @@ static int init_timer(void) {
         return EXIT_FAILURE;
     }
     struct itimerval timer = {
-        {0, 10000}, // 10 000 microseconds = 10 ms
+        {0, 1000000}, // 10 000 microseconds = 10 ms
         {0, 1} // arms the timer as soon as possible
     };
 
@@ -408,6 +415,7 @@ void free_sleep_queue() {
 
 __attribute__((__destructor__)) void my_end() {
     /* free all the threads */
+    block_sigprof();
     free_sleep_queue();
     if (SIMPLEQ_EMPTY(&head_run_queue)) {
         return;
@@ -424,4 +432,5 @@ __attribute__((__destructor__)) void my_end() {
         // free the thread structure
         free(current);
     }
+    unblock_sigprof();
 }

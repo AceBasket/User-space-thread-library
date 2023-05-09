@@ -38,7 +38,7 @@ static void *thfunc(void *arg) {
             values[me]++;
         }
         fprintf(stderr, "%ld ", (intptr_t)arg);
-        printf("[%p] values[me] = values[%d] = %ld\n", thread_self(), me, values[me]);
+        // printf("[%p] values[me] = values[%d] = %ld\n", thread_self(), me, values[me]);
     }
     fini = 1;
 
