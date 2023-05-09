@@ -215,9 +215,9 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
     new_thread_s->func = func;
     new_thread_s->funcarg = funcarg;
 
-    if (init_timer() == EXIT_FAILURE) {
-        return EXIT_FAILURE;
-    }
+    // if (init_timer() == EXIT_FAILURE) {
+    //     return EXIT_FAILURE;
+    // }
 
 
     // add the thread to the queue
