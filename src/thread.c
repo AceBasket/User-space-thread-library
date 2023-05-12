@@ -23,18 +23,13 @@ struct thread {
     int valgrind_stackid;
 };
 
-typedef struct {
-    thread_mutex_t mutex;
-    volatile int lock_flag;
-} extended_mutex;
-
 thread_t main_thread; // id of the main thread
-
-int locker=0;
 
 typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
 head_t head_run_queue;
 head_t head_sleep_queue;
+
+
 
 __attribute__((__constructor__)) void my_init() {
     head_t head_run_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_run_queue);
@@ -77,6 +72,7 @@ struct thread *go_back_to_main_thread(void) {
 struct thread *get_first_run_queue_element(void) {
     /* get the first element that is running in the queue, all of the finished threads go back to the beginning of the queue */
     struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
+    // printf("STATUS %d\n",first->status);
     while (first->status == FINISHED) {
         SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry); // remove finished thread from the run queue
         if (first->thread == main_thread) {
@@ -98,6 +94,7 @@ extern thread_t thread_self(void) {
 // Current thread placed at the beginning of the run queue (--> FIFO)
 extern int thread_yield(void) {
     if (SIMPLEQ_EMPTY(&head_run_queue)) {
+        printf("NO HEAD FOR QUEUE\n");
         return -1;
     }
 
@@ -105,6 +102,7 @@ extern int thread_yield(void) {
     struct thread *current = get_first_run_queue_element();
     if (len_run_queue() == 1) {
         // no need to yield if only one running thread in queue
+        // printf("LEN=0");
         return EXIT_SUCCESS;
     }
 
@@ -113,9 +111,11 @@ extern int thread_yield(void) {
 
     if (SIMPLEQ_EMPTY(&head_run_queue)) {
         // error if the queue becomes empty
+        printf("EMPTY QUEUE\n");
         return -1;
     }
     SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry); // add the current thread at the beginning of the queue
+    // printf("LEN  RUN  QUEUE IN YIELD %d\n",len_run_queue());
 
 
     // swap context with the next thread in the queue
@@ -178,6 +178,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
 }
 
 extern int thread_join(thread_t thread, void **retval) {
+    
     struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
 
@@ -272,26 +273,63 @@ __attribute__((__destructor__)) void my_end() {
     }
 }
 
-int thread_mutex_init(thread_mutex_t *mutex){
-    mutex->dummy=UNLOCK;
-    return EXIT_SUCCESS;
+head_t head_mutex;
+
+int len_mutex_queue(void) {
+    struct thread *t;
+    int len = 0;
+    SIMPLEQ_FOREACH(t, &head_mutex, entry) {
+        if (t->status == RUNNING) { // only count the running threads
+            len++;
+        }
+    }
+    return len;
 }
 
+int thread_mutex_init(thread_mutex_t *mutex){
+    head_t head_mutex_tmp = SIMPLEQ_HEAD_INITIALIZER(head_mutex);
+    head_mutex=head_mutex_tmp;
+    mutex->locker=NULL;
+    mutex->status=UNLOCK;
+    return EXIT_SUCCESS;
+}
 
 int thread_mutex_destroy(thread_mutex_t *mutex){
     return EXIT_SUCCESS;
 }
 
+int mutex_yield(thread_mutex_t * mutex);
+
 int thread_mutex_lock(thread_mutex_t *mutex){
-    while(mutex->dummy==1){
-        thread_yield();
+    while(mutex->status==1){
+        mutex_yield(mutex);
     }
-    mutex->dummy=1;
+    mutex->status=1;
+    mutex->locker=get_first_run_queue_element();
+    // thread_debug();
     return EXIT_SUCCESS;
 }
+
 
 int thread_mutex_unlock(thread_mutex_t *mutex){
-    mutex->dummy=0;
+    mutex->status=0;
+    mutex->locker=NULL;
     return EXIT_SUCCESS;
 }
 
+
+int mutex_yield(thread_mutex_t * mutex) {
+
+    if (len_run_queue() <= 1) {
+        return EXIT_SUCCESS;
+    }
+    struct thread *current = get_first_run_queue_element();
+    SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
+    SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry); // add the current thread at the beginning of the queue
+
+    struct thread *next_executed_thread = mutex->locker;
+    SIMPLEQ_REMOVE(&head_run_queue,next_executed_thread, thread, entry);
+    SIMPLEQ_INSERT_HEAD(&head_run_queue,next_executed_thread,entry);
+    swapcontext(&current->uc, &next_executed_thread->uc);
+    return EXIT_SUCCESS;
+}
