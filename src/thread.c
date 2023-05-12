@@ -102,6 +102,27 @@ void add_edge(thread_t src_tid, thread_t dest_tid) {
     adj_list[get_thread_adj_list_idx(src_tid)].head_joined_threads_arr = new_node;
 }
 
+void remove_edge(thread_t src_tid, thread_t dest_tid) {
+    node_t* curr_node = adj_list[get_thread_adj_list_idx(src_tid)].head_joined_threads_arr;
+    node_t* prev_node = NULL;
+
+    // traverse the adjacency list of the source thread
+    while (curr_node != NULL) {
+        if (curr_node->thread->thread == dest_tid) {
+        // found the destination thread in the adjacency list of the source thread
+            if (prev_node == NULL) {
+                adj_list[get_thread_adj_list_idx(src_tid)].head_joined_threads_arr = curr_node->next;
+            } else {
+                prev_node->next = curr_node->next;
+            }
+            free(curr_node);
+            break;
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
+    }
+}
+
 // Function to check if a cycle exists in the thread graph
 int has_cycle(thread_t tid, volatile int* visited, volatile int* rec_stack) {
 
@@ -342,6 +363,7 @@ extern int thread_join(thread_t thread, void **retval) {
     add_edge(current_thread, thread);
     if (has_cycle(current_thread, visited, rec_stack)) {
         printf("cycle detected\n");
+        remove_edge(current_thread, thread);
         return 35;
     }
     while (elm->status != FINISHED) {
