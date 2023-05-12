@@ -50,13 +50,16 @@ static void block_sigprof(void);
 static void unblock_sigprof(void);
 
 __attribute__((__constructor__)) void my_init() {
-    sigemptyset(&sigprof);
-    sigaddset(&sigprof, SIGPROF);
     head_t head_run_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_run_queue);
     head_run_queue = head_run_queue_tmp;
     head_t head_sleep_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_sleep_queue);
     head_sleep_queue = head_sleep_queue_tmp;
     thread_create(&main_thread, NULL, NULL);
+    if (init_timer() == -1) {
+        // free(new_thread_s);
+        printf("init_timer failed\n");
+        return;
+    }
 }
 
 void thread_debug(void) {
@@ -123,6 +126,12 @@ extern thread_t thread_self(void) {
 
 void meta_func(void *(*func)(void *), void *args, struct thread *current) {
     /* function that is called by makecontext */
+    unblock_sigprof();
+    if (init_timer() == -1) {
+        // free(new_thread_s);
+        printf("init_timer failed\n");
+        return;
+    }
     current->retval = func(args);
     block_sigprof();
 
@@ -169,6 +178,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
             return -1;
         }
 
+
         /*  */
         // if (thread_self() == main_thread) {
         //     if (init_timer() == EXIT_FAILURE) {
@@ -181,7 +191,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
         new_thread_s->uc.uc_stack.ss_sp = malloc(new_thread_s->uc.uc_stack.ss_size);
         new_thread_s->valgrind_stackid = VALGRIND_STACK_REGISTER(new_thread_s->uc.uc_stack.ss_sp, new_thread_s->uc.uc_stack.ss_sp + new_thread_s->uc.uc_stack.ss_size);
         makecontext(&new_thread_s->uc, (void (*)(void))meta_func, 3, func, funcarg, new_thread_s);
-
+        // unblock_sigprof();
         /* Timer initialized only for threads other than main */
         // if (init_timer() == -1) {
         //     free(new_thread_s);
@@ -195,10 +205,6 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
     // add the thread to the queue
 
     SIMPLEQ_INSERT_TAIL(&head_run_queue, new_thread_s, entry);
-    if (init_timer() == -1) {
-        free(new_thread_s);
-        return -1;
-    }
     unblock_sigprof();
     return EXIT_SUCCESS;
 }
@@ -250,6 +256,7 @@ extern int thread_join(thread_t thread, void **retval) {
     if (current_thread == thread) {
         printf("can't wait for itself\n");
         // can't wait for itself
+        unblock_sigprof();
         return -1;
     }
 
@@ -282,7 +289,9 @@ extern int thread_join(thread_t thread, void **retval) {
     while (elm->status != FINISHED) {
         // waiting for the thread to finish
         // block_sigprof();
+        unblock_sigprof();
         assert(!thread_yield());
+        block_sigprof();
         // unblock_sigprof();
     }
 
@@ -310,7 +319,7 @@ extern void thread_exit(void *retval) {
         // if main thread, swap context (will come back here when all threads are finished)
         // block_sigprof();
         swapcontext(&current->uc, &next_executed_thread->uc);
-        // unblock_sigprof();
+        unblock_sigprof();
         exit(EXIT_SUCCESS);
     }
     // block_sigprof();
@@ -399,7 +408,7 @@ static int init_timer(void) {
         return EXIT_FAILURE;
     }
     struct itimerval timer = {
-        {0, 100000},
+        {0, 1000},
         // {0, 10000}, // 10 000 microseconds = 10 ms
         {0, 1} // arms the timer as soon as possible
     };
@@ -425,6 +434,8 @@ static int init_timer(void) {
  * Block reception of SIGPROF signal
  */
 static void block_sigprof(void) {
+    sigemptyset(&sigprof);
+    sigaddset(&sigprof, SIGPROF);
     if (sigprocmask(SIG_BLOCK, &sigprof, NULL) == -1) {
         perror("sigprocmask");
         exit(EXIT_FAILURE);
@@ -437,6 +448,8 @@ static void block_sigprof(void) {
  * Unblock reception of SIGPROF signal
  */
 static void unblock_sigprof(void) {
+    sigemptyset(&sigprof);
+    sigaddset(&sigprof, SIGPROF);
     // puts("unblock");
     if (sigprocmask(SIG_UNBLOCK, &sigprof, NULL) == -1) {
         perror("sigprocmask");
