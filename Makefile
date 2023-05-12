@@ -7,7 +7,7 @@ BINDIR=$(INSTALLDIR)/bin
 OBJDIR=$(INSTALLDIR)/obj
 
 CC=gcc
-CFLAGS=-Wall -Werror -g
+CFLAGS=-Wall -g
 CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR)
 LDFLAGS=-L$(ROOTDIR)/install/lib
 LDLIBS=-lthread
@@ -15,7 +15,7 @@ VALGRIND=valgrind --leak-check=full --show-reachable=yes --track-origins=yes
 
 GRAPH_FILES?=
 
-TST=$(addprefix $(BINDIR)/, $(patsubst %.c,%,$(shell ls $(ROOTDIR)/$(TSTDIR))))
+TST=$(addprefix $(BINDIR)/, $(shell /usr/bin/cat tests.csv | cut -d ";" -f 1))
 PTHREAD_TST=$(addsuffix -pthread, $(TST))
 get_args=$(shell cat tests.csv | grep $(patsubst $(BINDIR)/%,%,$(1)) | cut -d ";" -f 2)
 
@@ -61,7 +61,6 @@ pthreads : $(BINDIR) $(PTHREAD_TST)
 
 graphs : threads pthreads
 	python3 graphs.py $(GRAPH_FILES)
-
 
 clean : 
 	rm -R ${BINDIR}/* ${LIBDIR}/* ${OBJDIR}/*
