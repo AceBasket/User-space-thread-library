@@ -39,11 +39,12 @@ extern int thread_join(thread_t thread, void **retval);
  */
 extern void thread_exit(void *retval);
 //__attribute__((__noreturn__));
-
+struct thread ;
 /* Interface possible pour les mutex */
 typedef struct thread_mutex
 {
-    int dummy;
+    int status;
+    struct thread * locker;
 } thread_mutex_t;
 int thread_mutex_init(thread_mutex_t *mutex);
 int thread_mutex_destroy(thread_mutex_t *mutex);

@@ -10,5 +10,5 @@ example;
 32-switch-many-join;2 1
 33-switch-many-cascade;2 1
 51-fibonacci;4
-61-mutex;5
-62-mutex;5
+61-mutex;20
+62-mutex;20
