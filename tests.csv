@@ -13,3 +13,4 @@ example;
 61-mutex;5
 62-mutex;5
 71-preemption;5
+81-deadlock;

@@ -8,7 +8,25 @@
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
+
+#define MAX_THREADS 1000
+
 typedef void *thread_t;
+
+// Structure to represent a node in the adjacency list
+typedef struct node_t {
+    struct thread* thread; // pointer to the thread represented by this node
+    struct node_t* next; // pointer to the next node in the adjacency list
+} node_t;
+
+typedef struct adj_list_entry_t {
+    thread_t tid; // thread id -> field thread of the struct thread
+    node_t* head_joined_threads_arr; // pointer to the head of the list of threads that this thread is waiting for
+} adj_list_entry_t;
+
+extern volatile adj_list_entry_t adj_list[MAX_THREADS];
+extern volatile int visited[MAX_THREADS];
+extern volatile int rec_stack[MAX_THREADS];
 
 /* recuperer l'identifiant du thread courant.
  */

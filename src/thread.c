@@ -11,6 +11,7 @@
 
 enum status { RUNNING, FINISHED };
 enum m_status { UNLOCK, LOCK };
+#define MAX_THREADS 1000
 
 struct thread {
     thread_t thread;
@@ -30,6 +31,12 @@ typedef struct {
 } extended_mutex;
 
 thread_t main_thread; // id of the main thread
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+volatile adj_list_entry_t adj_list[MAX_THREADS] = {[0 ... MAX_THREADS-1] = {.tid = NULL, .head_joined_threads_arr = NULL}};
+volatile int visited[MAX_THREADS] = {0};
+volatile int rec_stack[MAX_THREADS] = {0};
 
 int locker = 0;
 
@@ -65,6 +72,77 @@ int len_run_queue(void) {
     }
     return len;
 }
+
+struct thread *get_thread_by_tid(thread_t tid) {
+	// TODO must find the struct thread corresponding to the thread_t tid
+    struct thread *elm;
+    // look for the thread in the run queue
+    SIMPLEQ_FOREACH(elm, &head_run_queue, entry) {
+        if (elm->thread == tid)
+            return elm;
+    }
+    return NULL;
+}
+
+// function to find the index of a thread in the adjency list
+int get_thread_adj_list_idx(thread_t tid) {
+    for (int i = 0; i < MAX_THREADS; i++)
+        if (adj_list[i].tid == tid || adj_list[i].tid == NULL)
+            return i;
+    return -1;
+}
+
+// Function to add an edge (i.e. a join relationship) between two threads
+void add_edge(thread_t src_tid, thread_t dest_tid) {
+    // Create a new node for the destination thread
+    node_t* new_node = (node_t*) malloc(sizeof(node_t));
+    new_node->thread = get_thread_by_tid(dest_tid);
+    new_node->next = adj_list[get_thread_adj_list_idx(src_tid)].head_joined_threads_arr;
+    adj_list[get_thread_adj_list_idx(src_tid)].tid = src_tid;
+    adj_list[get_thread_adj_list_idx(src_tid)].head_joined_threads_arr = new_node;
+}
+
+// Function to check if a cycle exists in the thread graph
+int has_cycle(thread_t tid, volatile int* visited, volatile int* rec_stack) {
+
+    if (!visited[get_thread_adj_list_idx(tid)]) {
+        // Mark this thread as visited and add it to the recursion stack
+        visited[get_thread_adj_list_idx(tid)] = 1;
+        rec_stack[get_thread_adj_list_idx(tid)] = 1;
+
+        // Recursively check for cycles in the threads that this thread has joined
+        node_t* curr_node = adj_list[get_thread_adj_list_idx(tid)].head_joined_threads_arr;
+        while (curr_node != NULL) {
+            thread_t neighbor_tid = curr_node->thread->thread;
+            if (!visited[get_thread_adj_list_idx(neighbor_tid)] && has_cycle(neighbor_tid, visited, rec_stack)) {
+                return 1;
+            } else if (rec_stack[get_thread_adj_list_idx(neighbor_tid)]) {
+                return 1;
+            }
+            curr_node = curr_node->next;
+        }
+    }
+
+    // Remove this thread from the recursion stack
+    rec_stack[get_thread_adj_list_idx(tid)] = 0;
+    visited[get_thread_adj_list_idx(tid)] = 0;
+    return 0;
+}
+
+void free_adj_list() {
+    int i;
+    for (i = 0; i < MAX_THREADS; i++) {
+        node_t* curr_node = adj_list[i].head_joined_threads_arr;
+        while (curr_node != NULL) {
+            node_t* temp = curr_node;
+            curr_node = curr_node->next;
+            free(temp);
+        }
+        adj_list[i].head_joined_threads_arr = NULL;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
 struct thread *go_back_to_main_thread(void) {
     /* Assumes that main thread is still in queue */
@@ -228,7 +306,6 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
 extern int thread_join(thread_t thread, void **retval) {
     struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
-
     if (current_thread == thread) {
         printf("can't wait for itself\n");
         // can't wait for itself
@@ -262,6 +339,11 @@ extern int thread_join(thread_t thread, void **retval) {
         return -1;
     }
 
+    add_edge(current_thread, thread);
+    if (has_cycle(current_thread, visited, rec_stack)) {
+        printf("cycle detected\n");
+        return 35;
+    }
     while (elm->status != FINISHED) {
         // waiting for the thread to finish
         assert(!thread_yield());
@@ -318,6 +400,7 @@ __attribute__((__destructor__)) void my_end() {
         // free the thread structure
         free(current);
     }
+    free_adj_list();
 }
 
 int thread_mutex_init(thread_mutex_t *mutex) {
@@ -342,6 +425,3 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
     mutex->dummy = 0;
     return EXIT_SUCCESS;
 }
-
-
-
