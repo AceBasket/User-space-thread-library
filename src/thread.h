@@ -22,9 +22,10 @@ typedef struct node_t {
 typedef struct adj_list_entry_t {
     thread_t tid; // thread id -> field thread of the struct thread
     node_t* head_joined_threads_arr; // pointer to the head of the list of threads that this thread is waiting for
+    struct adj_list_entry_t* next; // pointer to the next entry in the adjacency list
 } adj_list_entry_t;
 
-extern volatile adj_list_entry_t adj_list[MAX_THREADS];
+extern volatile adj_list_entry_t* adj_list_head;
 extern volatile int visited[MAX_THREADS];
 extern volatile int rec_stack[MAX_THREADS];
 
