@@ -133,6 +133,9 @@ int get_thread_adj_list_idx(thread_t tid) {
  */
 void add_edge(thread_t src_tid, thread_t dest_tid) {
     // Create a new node for the destination thread
+    if (get_thread_by_tid(dest_tid) == NULL) {
+        return;
+    }
     node_t* new_node = (node_t*) malloc(sizeof(node_t));
 	adj_list_entry_t* src_th_adj_list_entry = get_thread_adj_list_entry(src_tid);
     new_node->thread = get_thread_by_tid(dest_tid);
