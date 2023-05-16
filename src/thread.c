@@ -73,6 +73,21 @@ int len_run_queue(void) {
     return len;
 }
 
+void adj_list_debug() {
+    printf("ADJACENCY LIST\n");
+	adj_list_entry_t* curr_entry = (adj_list_entry_t *) adj_list_head;
+	while (curr_entry != NULL) {
+		printf("tid: %p\n", curr_entry->tid);
+		node_t* curr_node = curr_entry->head_joined_threads_arr;
+		while (curr_node != NULL) {
+			printf("-> %p ", curr_node->thread->thread);
+			curr_node = curr_node->next;
+		}
+		printf("\n");
+		curr_entry = curr_entry->next;
+	}
+}
+
 /**
  * @brief Get the struct thread adress from the thread_t tid if it exists, return NULL otherwise
  * 
@@ -243,6 +258,8 @@ void remove_edge_when_finished(thread_t tid) {
 			curr_entry = curr_entry->next;
 		}
     }
+    // printf("DEBUG: %p\n", tid);
+    // adj_list_debug();
 }
 
 /**
@@ -514,10 +531,13 @@ extern int thread_join(thread_t thread, void **retval) {
 
     add_edge(current_thread, thread);
     if (has_cycle(current_thread, visited, rec_stack)) {
-        printf("cycle detected\n");
+        printf("cycle detected when trying to join %p with %p\n", current_thread, thread);
         remove_edge(current_thread, thread);
+        adj_list_debug();
         return 35;
     }
+    adj_list_debug();
+
     while (elm->status != FINISHED) {
         // waiting for the thread to finish
         assert(!thread_yield());
