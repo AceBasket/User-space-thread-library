@@ -51,7 +51,9 @@ __attribute__((__constructor__)) void my_init()
     head_run_queue = head_run_queue_tmp;
     head_t head_sleep_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_sleep_queue);
     head_sleep_queue = head_sleep_queue_tmp;
+
     thread_create(&main_thread, NULL, NULL);
+
     if (init_timer() == -1)
     {
         // free(new_thread_s);
@@ -80,9 +82,9 @@ int len_run_queue(void)
     int len = 0;
     SIMPLEQ_FOREACH(t, &head_run_queue, entry)
     {
+        len++;
         if (t->status == RUNNING)
         { // only count the running threads
-            len++;
         }
     }
 
@@ -94,12 +96,12 @@ struct thread *go_back_to_main_thread(void)
     /* Assumes that main thread is still in queue */
     // printf("[%p]go_back_to_main_thread\n", thread_self());
     // block_sigprof();
-    struct thread *main_thread = SIMPLEQ_FIRST(&head_sleep_queue);
+    struct thread *main_thread_s = SIMPLEQ_FIRST(&head_sleep_queue);
     SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);            // remove main thread from the sleep queue
-    SIMPLEQ_INSERT_HEAD(&head_run_queue, main_thread, entry); // insert it into the run queue
-    main_thread->status = RUNNING;                            // mark it as running
+    SIMPLEQ_INSERT_HEAD(&head_run_queue, main_thread_s, entry); // insert it into the run queue
+    main_thread_s->status = RUNNING;                            // mark it as running
     // unblock_sigprof();
-    return main_thread;
+    return main_thread_s;
 }
 
 struct thread *get_first_run_queue_element(void)
@@ -146,6 +148,7 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
         return;
     }
     current->retval = func(args);
+    unblock_sigprof();
     block_sigprof();
 
     // printf("[%p] meta_func\n", thread_self());
@@ -161,15 +164,15 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
         unblock_sigprof();
         exit(EXIT_SUCCESS);
     }
-    if (len_run_queue() == 1)
+    else if (len_run_queue() == 1)
     {
         // if only one thread left in queue, exit
         if (thread_self() != main_thread)
         {
             // if that thread is not the main thread, return to the context of the main thread (just before exit(EXIT_SUCCESS)) in thread_exit
-            struct thread *main_thread = go_back_to_main_thread();
+            struct thread *main_thread_s = go_back_to_main_thread();
             // block_sigprof();
-            setcontext(&main_thread->uc);
+            setcontext(&main_thread_s->uc);
         }
         unblock_sigprof();
         exit(EXIT_SUCCESS);
@@ -181,21 +184,24 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     // if (func != NULL)
     //     printf("[%p] thread_create\n", thread_self());
     // thread_debug();
+    unblock_sigprof();
     block_sigprof(); // Je pense qu'on doit blocker le signal pendant toute la création du thread
     struct thread *new_thread_s = malloc(sizeof(struct thread));
     new_thread_s->thread = newthread;
     *newthread = newthread;
     new_thread_s->status = RUNNING;
+    new_thread_s->retval = NULL;
+    getcontext(&new_thread_s->uc);
     if (func != NULL)
     { // if not main thread
-        if (getcontext(&(new_thread_s->uc)) == -1)
-        {
-            // if error in getting context
-            VALGRIND_STACK_DEREGISTER(new_thread_s->valgrind_stackid);
-            free(new_thread_s->uc.uc_stack.ss_sp);
-            free(new_thread_s);
-            return -1;
-        }
+        // if (getcontext(&(new_thread_s->uc)) == -1)
+        // {
+        //     // if error in getting context
+        //     VALGRIND_STACK_DEREGISTER(new_thread_s->valgrind_stackid);
+        //     free(new_thread_s->uc.uc_stack.ss_sp);
+        //     free(new_thread_s);
+        //     return -1;
+        // }
 
         /*  */
         // if (thread_self() == main_thread) {
@@ -234,6 +240,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 extern int thread_yield(void)
 {
     // printf("[%p] thread_yield\n", thread_self());
+    unblock_sigprof();
     block_sigprof();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
@@ -277,7 +284,9 @@ extern int thread_yield(void)
 extern int thread_join(thread_t thread, void **retval)
 {
     // printf("[%p] thread_join\n", thread_self());
+    unblock_sigprof();
     block_sigprof();
+    printf("head_sleep_queue = %p\n", &head_sleep_queue);
     struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
 
@@ -327,6 +336,7 @@ extern int thread_join(thread_t thread, void **retval)
         // block_sigprof();
         unblock_sigprof();
         assert(!thread_yield());
+        unblock_sigprof();
         block_sigprof();
         // unblock_sigprof();
     }
@@ -346,6 +356,7 @@ extern void thread_exit(void *retval)
 {
     // printf("[%p] thread_exit\n", thread_self());
     /* Mark the thread as finished and switch context to newt thread */
+    unblock_sigprof();
     block_sigprof();
     struct thread *current = get_first_run_queue_element();
     current->retval = retval;
@@ -371,6 +382,7 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 {
     (void)signum;
     // printf("[%p] SIGPROF\n", thread_self());
+    unblock_sigprof();
     block_sigprof();
     // printf("[%p] SIGPROF\n", thread_self());
     // puts("SIGPROF");
@@ -380,12 +392,19 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     // Backup the current context
     struct thread *current = get_first_run_queue_element();
     // ucontext_t *stored_context = &current->uc;
-    ucontext_t *updated = (ucontext_t *)context;
 
-    current->uc.uc_flags = updated->uc_flags;
-    current->uc.uc_link = updated->uc_link;
-    current->uc.uc_mcontext = updated->uc_mcontext;
-    current->uc.uc_sigmask = updated->uc_sigmask;
+
+    /* On avait souvent void *context = NULL */
+    // ucontext_t *updated = (ucontext_t *)context;
+
+    // current->uc.uc_flags = updated->uc_flags;
+    // current->uc.uc_link = updated->uc_link;
+    // current->uc.uc_mcontext = updated->uc_mcontext;
+    // current->uc.uc_sigmask = updated->uc_sigmask;
+    // printf("current->uc.uc_stack.ss_sp = %p\n", current->uc.uc_stack.ss_sp);
+    // printf("current->uc.uc_stack.ss_size = %ld\n", current->uc.uc_stack.ss_size);
+    // printf("current->uc.uc_stack.ss_flags = %d\n", current->uc.uc_stack.ss_flags);
+    // printf("current->uc = %p\n", &current->uc);
 
     // setcontext(&current->uc);
     // thread_yield();
@@ -406,6 +425,10 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
     SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry);
     struct thread *next_executed_thread = get_first_run_queue_element();
+    // printf("next_executed_thread->uc.uc_stack.ss_sp = %p\n", next_executed_thread->uc.uc_stack.ss_sp);
+    // printf("next_executed_thread->uc.uc_stack.ss_size = %ld\n", next_executed_thread->uc.uc_stack.ss_size);
+    // printf("next_executed_thread->uc.uc_stack.ss_flags = %d\n", next_executed_thread->uc.uc_stack.ss_flags);
+    // printf("next_executed_thread->uc = %p\n", &next_executed_thread->uc);
     swapcontext(&current->uc, &next_executed_thread->uc);
     unblock_sigprof();
 }
@@ -429,8 +452,8 @@ static int init_timer(void)
         return EXIT_FAILURE;
     }
     struct itimerval timer = {
-        {0, 10000},
-        // {0, 10000}, // 10 000 microseconds = 10 ms
+        // {1, 0},
+        {0, 10000}, // 10 000 microseconds = 10 ms
         {0, 1} // arms the timer as soon as possible
     };
 
@@ -502,6 +525,7 @@ void free_sleep_queue()
 __attribute__((__destructor__)) void my_end()
 {
     /* free all the threads */
+    unblock_sigprof();
     block_sigprof();
     free_sleep_queue();
     if (SIMPLEQ_EMPTY(&head_run_queue))
@@ -528,6 +552,7 @@ head_t head_mutex;
 
 int len_mutex_queue(void)
 {
+    unblock_sigprof();
     block_sigprof();
     struct thread *t;
     int len = 0;
@@ -544,6 +569,7 @@ int len_mutex_queue(void)
 
 int thread_mutex_init(thread_mutex_t *mutex)
 {
+    unblock_sigprof();
     block_sigprof();
     head_t head_mutex_tmp = SIMPLEQ_HEAD_INITIALIZER(head_mutex);
     head_mutex = head_mutex_tmp;
@@ -562,6 +588,7 @@ int mutex_yield(thread_mutex_t *mutex);
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
+    unblock_sigprof();
     block_sigprof();
     while (mutex->status == 1)
     {
@@ -576,6 +603,7 @@ int thread_mutex_lock(thread_mutex_t *mutex)
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
+    unblock_sigprof();
     block_sigprof();
     mutex->status = 0;
     mutex->locker = NULL;
@@ -585,6 +613,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex)
 
 int mutex_yield(thread_mutex_t *mutex)
 {
+    unblock_sigprof();
     block_sigprof();
     if (len_run_queue() <= 1)
     {

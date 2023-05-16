@@ -26,17 +26,14 @@ static int fini = 0;
 static double score = 0;
 static long *values = NULL;
 
-static void *thfunc(void *arg)
-{
+static void *thfunc(void *arg) {
     unsigned long i, j = 0;
     int me = (intptr_t)arg;
 
-    for (i = 0; i < NB_ITER; i++)
-    {
-        for (j = 0; j < ITER_LENGTH; j++)
-        {
-            if (fini)
-            {
+    for (i = 0; i < NB_ITER; i++) {
+        // printf("[%p] new iteration\n", thread_self());
+        for (j = 0; j < ITER_LENGTH; j++) {
+            if (fini) {
                 return NULL;
             }
             values[me]++;
@@ -51,26 +48,25 @@ static void *thfunc(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     thread_t *th;
     int i, err, nb;
     struct timeval tv1, tv2;
     unsigned long us;
 
-    if (argc < 2)
-    {
+    if (argc < 2) {
         printf("argument manquant: nombre de threads\n");
         return -1;
     }
 
     nb = atoi(argv[1]);
     th = malloc(nb * sizeof(*th));
-    if (!th)
-    {
+    if (!th) {
         perror("malloc(th)");
         return -1;
     }
+
+    printf(" main thread = %p\n", thread_self());
 
     values = calloc(nb + 1, sizeof(long));
     // for (int i_values = 0; i_values < nb + 1; i_values++) {
@@ -83,17 +79,16 @@ int main(int argc, char *argv[])
     //     iter++;
     // }
 
-    if (!values)
-    {
+    if (!values) {
         perror("malloc(values)");
         return -1;
     }
 
     gettimeofday(&tv1, NULL);
     /* on cree tous les threads */
-    for (i = 0; i < nb; i++)
-    {
+    for (i = 0; i < nb; i++) {
         err = thread_create(&th[i], thfunc, (void *)((intptr_t)i));
+        printf("th[%d] = %p\n", i, th[i]);
         assert(!err);
     }
 
@@ -104,8 +99,7 @@ int main(int argc, char *argv[])
 
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
-    for (i = 0; i < nb; i++)
-    {
+    for (i = 0; i < nb; i++) {
         err = thread_join(th[i], NULL);
         assert(!err);
 
@@ -123,12 +117,9 @@ int main(int argc, char *argv[])
     free(th);
     free(values);
 
-    if (score < .5)
-    {
+    if (score < .5) {
         return EXIT_FAILURE;
-    }
-    else
-    {
+    } else {
         printf("Temps attendu pour le programme complet: %e us\n", us / score);
         return EXIT_SUCCESS;
     }
