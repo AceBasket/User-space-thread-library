@@ -389,6 +389,11 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 
     // This code can be useful to change thread context with the context given by signal handler
 
+    /* Let's do equivalent of thread_yield */
+    if (SIMPLEQ_EMPTY(&head_run_queue))
+    {
+        return;
+    }
     // Backup the current context
     struct thread *current = get_first_run_queue_element();
     // ucontext_t *stored_context = &current->uc;
@@ -409,11 +414,6 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     // setcontext(&current->uc);
     // thread_yield();
 
-    /* Let's do equivalent of thread_yield */
-    if (SIMPLEQ_EMPTY(&head_run_queue))
-    {
-        return;
-    }
 
     if (SIMPLEQ_FIRST(&head_run_queue) == SIMPLEQ_LAST(&head_run_queue, thread, entry))
     {
