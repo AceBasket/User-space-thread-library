@@ -143,36 +143,36 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
         printf("init_timer failed\n");
         return;
     }
-    current->retval = func(args);
+    // current->retval = func(args);
+    thread_exit(func(args)); // exit the thread
     block_sigprof();
 
     // printf("[%p] meta_func\n", thread_self());
-
     // should only go here when the thread returns without using thread_exit
-    if (len_run_queue() != 1)
-    {
-        current->status = FINISHED;
-        struct thread *next_executed_thread = get_first_run_queue_element();
-        assert(nb_blocks == 1);
-        setcontext(&next_executed_thread->uc);
-        unblock_sigprof(); // should never be reached
-        exit(EXIT_SUCCESS);
-    }
-    else if (len_run_queue() == 1)
-    {
-        // if only one thread left in queue, exit
-        unblock_sigprof();
-        if (thread_self() != main_thread) /* TODO : jamais le main thread comme on est dans meta_func ???? */
-        {
-            block_sigprof();
-            // if that thread is not the main thread, return to the context of the main thread (just before exit(EXIT_SUCCESS)) in thread_exit
-            struct thread *main_thread_s = go_back_to_main_thread();
-            assert(nb_blocks == 1);
-            setcontext(&main_thread_s->uc);
-        }
-        unblock_sigprof();
-        exit(EXIT_SUCCESS);
-    }
+    // if (len_run_queue() != 1)
+    // {
+    //     current->status = FINISHED;
+    //     struct thread *next_executed_thread = get_first_run_queue_element();
+    //     assert(nb_blocks == 1);
+    //     setcontext(&next_executed_thread->uc);
+    //     unblock_sigprof(); // should never be reached
+    //     exit(EXIT_SUCCESS);
+    // }
+    // else if (len_run_queue() == 1)
+    // {
+    //     // if only one thread left in queue, exit
+    //     unblock_sigprof();
+    //     if (thread_self() != main_thread) /* TODO : jamais le main thread comme on est dans meta_func ???? */
+    //     {
+    //         block_sigprof();
+    //         // if that thread is not the main thread, return to the context of the main thread (just before exit(EXIT_SUCCESS)) in thread_exit
+    //         struct thread *main_thread_s = go_back_to_main_thread();
+    //         assert(nb_blocks == 1);
+    //         setcontext(&main_thread_s->uc);
+    //     }
+    //     unblock_sigprof();
+    //     exit(EXIT_SUCCESS);
+    // }
 }
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
@@ -329,6 +329,8 @@ extern void thread_exit(void *retval)
     // unblock_sigprof();
     current->status = FINISHED;
 
+
+
     struct thread *next_executed_thread = get_first_run_queue_element();
     if (current->thread == main_thread)
     {
@@ -340,7 +342,12 @@ extern void thread_exit(void *retval)
         unblock_sigprof();
         exit(EXIT_SUCCESS);
     } else {
+        if (len_run_queue() == 1 && current->thread != main_thread) {
+            block_sigprof();
+            next_executed_thread = go_back_to_main_thread();
+        }
         // block_sigprof();
+        assert(nb_blocks == 1);
         setcontext(&next_executed_thread->uc); /* TODO: peut combiner les deux morceaux ? de toute façon les threads non principaux ne reprendrons jamais leur exécution */
         unblock_sigprof();
     }
@@ -349,35 +356,7 @@ extern void thread_exit(void *retval)
 static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 {
     (void)signum;
-    block_sigprof();
-
-    // This code can be useful to change thread context with the context given by signal handler
-
-    if (SIMPLEQ_EMPTY(&head_run_queue))
-    {
-        // no thread in queue
-        unblock_sigprof();
-        return;
-    }
-    // Backup the current context
-    struct thread *current = get_first_run_queue_element();
-
-    /* Let's do equivalent of thread_yield */
-    if (SIMPLEQ_FIRST(&head_run_queue) == SIMPLEQ_LAST(&head_run_queue, thread, entry))
-    {
-        // only one thread in queue
-        unblock_sigprof();
-        return;
-    }
-
-    SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
-    SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry);
-    struct thread *next_executed_thread = get_first_run_queue_element();
-
-    assert(nb_blocks == 1);
-    swapcontext(&current->uc, &next_executed_thread->uc);
-    assert(nb_blocks == 1);
-    unblock_sigprof();
+    thread_yield();
 }
 
 static int init_timer(void)
