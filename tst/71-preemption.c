@@ -100,6 +100,7 @@ int main(int argc, char *argv[]) {
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
     for (i = 0; i < nb; i++) {
+        printf("joining th[%d] = %p\n", i, th[i]);
         err = thread_join(th[i], NULL);
         assert(!err);
 
