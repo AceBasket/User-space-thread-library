@@ -317,6 +317,7 @@ extern void thread_exit(void *retval)
         if (len_run_queue() == 1 && current->thread != main_thread) {
             block_sigprof();
             next_executed_thread = go_back_to_main_thread();
+            unblock_sigprof();
         }
         // block_sigprof();
         assert(nb_blocks == 1);
