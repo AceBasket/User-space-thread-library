@@ -88,19 +88,17 @@ int main(int argc, char *argv[]) {
     /* on cree tous les threads */
     for (i = 0; i < nb; i++) {
         err = thread_create(&th[i], thfunc, (void *)((intptr_t)i));
-        printf("th[%d] = %p\n", i, th[i]);
+        printf("thread th[%d] = %p created\n", i, th[i]);
         assert(!err);
     }
 
     /* On participe au réchauffement climatique */
     thfunc((void *)((intptr_t)nb));
 
-    printf("after thfunc\n");
-
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
     for (i = 0; i < nb; i++) {
-        printf("joining th[%d] = %p\n", i, th[i]);
+        printf("\njoining th[%d] = %p\n", i, th[i]);
         err = thread_join(th[i], NULL);
         assert(!err);
 

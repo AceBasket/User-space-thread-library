@@ -231,7 +231,6 @@ extern int thread_join(thread_t thread, void **retval)
 {
     // printf("[%p] thread_join\n", thread_self());
     block_sigprof();
-    printf("head_sleep_queue = %p\n", &head_sleep_queue);
     struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
 
