@@ -146,33 +146,6 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
     // current->retval = func(args);
     thread_exit(func(args)); // exit the thread
     block_sigprof();
-
-    // printf("[%p] meta_func\n", thread_self());
-    // should only go here when the thread returns without using thread_exit
-    // if (len_run_queue() != 1)
-    // {
-    //     current->status = FINISHED;
-    //     struct thread *next_executed_thread = get_first_run_queue_element();
-    //     assert(nb_blocks == 1);
-    //     setcontext(&next_executed_thread->uc);
-    //     unblock_sigprof(); // should never be reached
-    //     exit(EXIT_SUCCESS);
-    // }
-    // else if (len_run_queue() == 1)
-    // {
-    //     // if only one thread left in queue, exit
-    //     unblock_sigprof();
-    //     if (thread_self() != main_thread) /* TODO : jamais le main thread comme on est dans meta_func ???? */
-    //     {
-    //         block_sigprof();
-    //         // if that thread is not the main thread, return to the context of the main thread (just before exit(EXIT_SUCCESS)) in thread_exit
-    //         struct thread *main_thread_s = go_back_to_main_thread();
-    //         assert(nb_blocks == 1);
-    //         setcontext(&main_thread_s->uc);
-    //     }
-    //     unblock_sigprof();
-    //     exit(EXIT_SUCCESS);
-    // }
 }
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
