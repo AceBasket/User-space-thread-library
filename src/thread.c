@@ -126,9 +126,7 @@ struct thread *get_first_run_queue_element(void)
 
 extern thread_t thread_self(void)
 {
-    block_sigprof();
     struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
-    unblock_sigprof();
     return first->thread;
 }
 
@@ -155,8 +153,8 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     // thread_debug();
     block_sigprof(); 
     struct thread *new_thread_s = malloc(sizeof(struct thread));
-    new_thread_s->thread = newthread;
-    *newthread = newthread;
+    new_thread_s->thread = (thread_t)new_thread_s;
+    *newthread = new_thread_s->thread;
     new_thread_s->status = RUNNING;
     new_thread_s->retval = NULL;
     getcontext(&new_thread_s->uc);
