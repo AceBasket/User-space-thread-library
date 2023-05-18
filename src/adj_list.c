@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "adj_list.h"
 #include "thread_struct.h"
 #include "queue.h"
@@ -185,9 +186,6 @@ void remove_edge_when_finished(thread_t tid) {
 
                 free(entry_to_be_freed);
 
-				// adj_list_entry_t* adj_list_entry_to_free = curr_entry;
-				// curr_entry = curr_entry->next;
-				// free(adj_list_entry_to_free);
             } else {
                 // for every other node of adj_list, remove the edge with tid from it
                 node_t* prev_node = NULL;
@@ -243,16 +241,9 @@ int has_cycle_rec(thread_t tid, int* visited, int* rec_stack) {
             }
             thread_t neighbor_tid = curr_node->thread->thread;
             int th_nghbr_idx = get_thread_adj_list_idx(neighbor_tid);
-            // if (th_nghbr_idx == -1) {
-            //     return 0;
-            // }
             if (!visited[th_nghbr_idx] && has_cycle_rec(neighbor_tid, visited, rec_stack)) {
-                rec_stack[th_nghbr_idx] = 0;
-                visited[th_nghbr_idx] = 0;
                 return 1;
             } else if (rec_stack[th_nghbr_idx]) {
-                rec_stack[th_nghbr_idx] = 0;
-                visited[th_nghbr_idx] = 0;
                 return 1;
             }
             curr_node = curr_node->next;
@@ -261,11 +252,14 @@ int has_cycle_rec(thread_t tid, int* visited, int* rec_stack) {
 
     // Remove this thread from the recursion stack
     rec_stack[th_idx] = 0;
-    visited[th_idx] = 0;
     return 0;
 }
 
+
 int has_cycle(thread_t tid) {
+    // reset visited and rec_stack arrays
+    memset(visited, 0, sizeof(visited));
+    memset(rec_stack, 0, sizeof(rec_stack));
 	return has_cycle_rec(tid, visited, rec_stack);
 }
 
