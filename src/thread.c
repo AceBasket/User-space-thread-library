@@ -152,17 +152,13 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
-    // if (func != NULL)
-    // #ifdef DEBUG
-    //     thread_t th_debug = thread_self();
-    //     log_message(DEBUGGING, "[%p] thread_create\n", th_debug);
-    // #endif
-    // thread_debug();
     block_sigprof(); 
     struct thread *new_thread_s = malloc(sizeof(struct thread));
     new_thread_s->thread = (thread_t)new_thread_s;
     *newthread = new_thread_s->thread;
-    printf("new thread id: %p\n", new_thread_s->thread);
+    #ifdef DEBUG
+    log_message(DEBUGGING, "new thread id: %p\n", new_thread_s->thread);
+    #endif
     new_thread_s->status = RUNNING;
     new_thread_s->retval = NULL;
     getcontext(&new_thread_s->uc);
@@ -295,7 +291,7 @@ extern int thread_join(thread_t thread, void **retval)
     {
 #ifdef DEBUG
         log_message(DEBUGGING, "thread not found\n");
-#endif DEBUG
+#endif
         unblock_sigprof();
         // thread not found
         return -1;
@@ -330,7 +326,9 @@ extern void thread_exit(void *retval)
     current->status = FINISHED;
     num_threads--;
 
-    printf("thread %p finished\n", current->thread);
+    #ifdef DEBUG
+    log_message(DEBUGGING, "thread %p finished\n", current->thread);
+    #endif
 
     struct thread *next_executed_thread;
     
@@ -471,7 +469,9 @@ void free_sleep_queue()
     while (!SIMPLEQ_EMPTY(&head_sleep_queue))
     {
         struct thread *current = SIMPLEQ_FIRST(&head_sleep_queue);
-        printf("freeing thread %p\n", current->thread);
+        #ifdef DEBUG
+        log_message(DEBUGGING, "freeing thread %p\n", current->thread);
+        #endif
         assert(current->thread != main_thread);
         SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);
         VALGRIND_STACK_DEREGISTER(current->valgrind_stackid);
