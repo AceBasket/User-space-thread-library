@@ -314,7 +314,6 @@ extern void thread_exit(void *retval)
     block_sigprof();
     struct thread *current = get_first_run_queue_element();
     current->retval = retval;
-    // unblock_sigprof();
     current->status = FINISHED;
     num_threads--;
 
@@ -331,26 +330,11 @@ extern void thread_exit(void *retval)
     assert(nb_blocks == 1);
     swapcontext(&current->uc, &next_executed_thread->uc);
     assert(nb_blocks == 1);
-    unblock_sigprof();
 
     if (len_run_queue() == 0 && current->thread == main_thread) {
+        disarm_timer();
         exit(EXIT_SUCCESS);
     }
-    // if (current->thread == main_thread)
-    // {
-    //     // if main thread, swap context (will come back here when all threads are finished)
-    //     // block_sigprof();
-    //     assert(nb_blocks == 1);
-    //     swapcontext(&current->uc, &next_executed_thread->uc);
-    //     assert(nb_blocks == 1);
-    //     unblock_sigprof();
-    //     exit(EXIT_SUCCESS);
-    // } else {
-    //     // block_sigprof();
-    //     assert(nb_blocks == 1);
-    //     setcontext(&next_executed_thread->uc); /* TODO: peut combiner les deux morceaux ? de toute façon les threads non principaux ne reprendrons jamais leur exécution */
-    //     unblock_sigprof();
-    // }
 }
 
 static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
@@ -409,6 +393,26 @@ static int init_timer(void)
     return EXIT_SUCCESS;
 }
 
+static int disarm_timer(void)
+{
+    struct itimerval timer = {
+        .it_interval = {
+            .tv_sec = 0,
+            .tv_usec = 0},
+        .it_value = {
+            .tv_sec = 0,
+            .tv_usec = 0}
+    };
+
+    // Disable timer
+    if (setitimer(ITIMER_PROF, &timer, NULL) == -1)
+    {
+        perror("setitimer");
+        return -1;
+    }
+    return EXIT_SUCCESS;
+}
+
 /**
  * Block reception of SIGPROF signal
  */
@@ -458,8 +462,6 @@ void free_sleep_queue()
 __attribute__((__destructor__)) void my_end()
 {
     /* free all the threads */
-    assert(nb_blocks == 0);
-    block_sigprof();
     assert(nb_blocks == 1);
     free_sleep_queue();
     if (SIMPLEQ_EMPTY(&head_run_queue))
