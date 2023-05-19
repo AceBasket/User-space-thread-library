@@ -12,4 +12,5 @@
 51-fibonacci;4
 61-mutex;20
 62-mutex;20
+63-mutex-equity;20
 71-preemption;5

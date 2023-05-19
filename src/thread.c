@@ -34,6 +34,8 @@ struct thread
     int valgrind_stackid;
 };
 
+int num_threads=0;
+
 thread_t main_thread; // id of the main thread
 
 typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
@@ -75,19 +77,21 @@ void thread_debug(void)
 
 int len_run_queue(void)
 {
-    /* get the length of the run queue */
-    // printf("[%p]len_run_queue\n", thread_self());
-    struct thread *t;
-    int len = 0;
-    SIMPLEQ_FOREACH(t, &head_run_queue, entry)
-    {
-        if (t->status == RUNNING)
-        { // only count the running threads
-            len++;
-        }
-    }
+    // /* get the length of the run queue */
+    // // printf("[%p]len_run_queue\n", thread_self());
+    // struct thread *t;
+    // int len = 0;
+    // SIMPLEQ_FOREACH(t, &head_run_queue, entry)
+    // {
+    //     len++;
+    //     if (t->status == RUNNING)
+    //     { // only count the running threads
+    //     }
+    // }
 
-    return len;
+    // return len;
+
+    return num_threads;
 }
 
 struct thread *go_back_to_main_thread(void)
@@ -109,14 +113,17 @@ struct thread *get_first_run_queue_element(void)
     while (first->status == FINISHED)
     {
         SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry); // remove finished thread from the run queue
+        num_threads--;
         if (first->thread == main_thread)
         {
             // if the main thread is finished, we need to keep it in an accessible place (--> end of sleep queue)
             SIMPLEQ_INSERT_HEAD(&head_sleep_queue, first, entry);
+            num_threads++;
         }
         else
         {
             SIMPLEQ_INSERT_TAIL(&head_sleep_queue, first, entry); // insert it into the sleep queue
+            num_threads++;
         }
         first = SIMPLEQ_FIRST(&head_run_queue); // get the new first element of the run queue
     }
@@ -138,7 +145,7 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
     if (init_timer() == -1)
     {
         // free(new_thread_s);
-        printf("init_timer failed\n");
+        // printf("init_timer failed\n");
         return;
     }
     // current->retval = func(args);
@@ -178,6 +185,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 
     SIMPLEQ_INSERT_TAIL(&head_run_queue, new_thread_s, entry);
     unblock_sigprof();
+    num_threads++;
     return EXIT_SUCCESS;
 }
 
@@ -188,7 +196,7 @@ extern int thread_yield(void)
     block_sigprof();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
-        printf("NO HEAD FOR QUEUE\n");
+        // printf("NO HEAD FOR QUEUE\n");
         unblock_sigprof();
         return -1;
     }
@@ -266,7 +274,7 @@ extern int thread_join(thread_t thread, void **retval)
 
     if (elm_found_bool == 0)
     {
-        printf("thread not found\n");
+        // printf("thread not found\n");
         unblock_sigprof();
         // thread not found
         return -1;
@@ -298,6 +306,7 @@ extern void thread_exit(void *retval)
     current->retval = retval;
     // unblock_sigprof();
     current->status = FINISHED;
+    num_threads--;
 
 
 
@@ -355,7 +364,7 @@ static int init_timer(void)
     // Enable timer
     if (setitimer(ITIMER_PROF, &timer, NULL) == -1)
     {
-        printf("setitimer failed\n");
+        // printf("setitimer failed\n");
         if (errno == EFAULT)
         {
             printf("DEFAULT: new_value is not a valid pointer\n");
@@ -445,29 +454,9 @@ __attribute__((__destructor__)) void my_end()
     }
 }
 
-head_t head_mutex;
-
-int len_mutex_queue(void)
-{
-    block_sigprof();
-    struct thread *t;
-    int len = 0;
-    SIMPLEQ_FOREACH(t, &head_mutex, entry)
-    {
-        if (t->status == RUNNING)
-        { // only count the running threads
-            len++;
-        }
-    }
-    unblock_sigprof();
-    return len;
-}
-
 int thread_mutex_init(thread_mutex_t *mutex)
 {
     block_sigprof();
-    head_t head_mutex_tmp = SIMPLEQ_HEAD_INITIALIZER(head_mutex);
-    head_mutex = head_mutex_tmp;
     mutex->locker = NULL;
     mutex->status = UNLOCK;
     unblock_sigprof();
