@@ -45,14 +45,18 @@ int main() {
         err = thread_yield();
         assert(!err);
     }
+    printf("th1 = %p, th2 = %p, th3 = %p\n", th1, th2, th3);
     err = thread_join(th3, &res);
     assert(!err);
+    printf("thread %p joiné\n", th3);
     assert(res == NULL);
     err = thread_join(th2, NULL); /* on ignore ce code de retour */
     assert(!err);
+    printf("thread %p joiné\n", th2);
     err = thread_join(th1, &res);
     assert(!err);
     assert(res == NULL);
+    printf("thread %p joiné\n", th1);
 
     printf("main terminé\n");
     return 0;
