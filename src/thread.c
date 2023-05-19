@@ -43,6 +43,7 @@ head_t head_run_queue;
 head_t head_sleep_queue;
 
 sigset_t sigprof;
+
 int nb_blocks = 0;
 static int init_timer(void);
 static void block_sigprof(void);
@@ -50,10 +51,15 @@ static void unblock_sigprof(void);
 
 __attribute__((__constructor__)) void my_init()
 {
+    /* Initializing queues */
     head_t head_run_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_run_queue);
     head_run_queue = head_run_queue_tmp;
     head_t head_sleep_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_sleep_queue);
     head_sleep_queue = head_sleep_queue_tmp;
+
+    /* Initializing signal mask */
+    sigemptyset(&sigprof);
+    sigaddset(&sigprof, SIGPROF);
 
     thread_create(&main_thread, NULL, NULL);
     printf("main thread id: %p\n", main_thread);
@@ -150,13 +156,7 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
     /* function that is called by makecontext */
     assert(nb_blocks == 1);
     unblock_sigprof(); // unblock SIGPROF signal --> signal est blocké puisqu'on arrive après un swapcontext qui bloque le signal
-    if (init_timer() == -1)
-    {
-        // free(new_thread_s);
-        // printf("init_timer failed\n");
-        return;
-    }
-    // current->retval = func(args);
+
     thread_exit(func(args)); // exit the thread
     block_sigprof();
 }
@@ -293,7 +293,8 @@ extern int thread_join(thread_t thread, void **retval)
     {
         // waiting for the thread to finish
         unblock_sigprof();
-        assert(!thread_yield());
+        int res = thread_yield();
+        assert(!res);
         block_sigprof();
     }
 
@@ -378,8 +379,12 @@ static int init_timer(void)
         return EXIT_FAILURE;
     }
     struct itimerval timer = {
-        {0, 10000}, // 10 000 microseconds = 10 ms
-        {0, 1} // arms the timer as soon as possible
+        .it_interval = {
+            .tv_sec = 0,
+            .tv_usec = 10000},
+        .it_value = {
+            .tv_sec = 0,
+            .tv_usec = 10000}
     };
 
     // Enable timer
@@ -409,8 +414,6 @@ static int init_timer(void)
  */
 static void block_sigprof(void)
 {
-    sigemptyset(&sigprof);
-    sigaddset(&sigprof, SIGPROF);
     if (sigprocmask(SIG_BLOCK, &sigprof, NULL) == -1)
     {
         perror("sigprocmask");
@@ -430,8 +433,7 @@ static void unblock_sigprof(void)
     nb_blocks--;
     assert(nb_blocks == 0);
     // printf("unblock sigprof\n");
-    sigemptyset(&sigprof);
-    sigaddset(&sigprof, SIGPROF);
+    
     if (sigprocmask(SIG_UNBLOCK, &sigprof, NULL) == -1)
     {
         perror("sigprocmask");
