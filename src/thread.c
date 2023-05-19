@@ -35,6 +35,7 @@ struct thread
 };
 
 int num_threads=0;
+int total_threads=0;
 
 thread_t main_thread; // id of the main thread
 
@@ -175,11 +176,17 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     SIMPLEQ_INSERT_TAIL(&head_run_queue, new_thread_s, entry);
     unblock_sigprof();
     num_threads++;
+    total_threads++;
 
-    if (init_timer() == -1)
+    if (total_threads == 2)
     {
-        printf("init_timer failed\n");
-        return EXIT_FAILURE;
+        // if it is the second thread created, initialize the timer
+        // Useless for only one thread
+        if (init_timer() == -1)
+        {
+            printf("init_timer failed\n");
+            return EXIT_FAILURE;
+        }
     }
 
     return EXIT_SUCCESS;
