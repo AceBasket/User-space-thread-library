@@ -31,6 +31,9 @@ $(BINDIR) $(LIBDIR) :
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
+$(OBJDIR)/logger.o : $(SRCDIR)/logger.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
+
 $(OBJDIR)/thread.o : $(SRCDIR)/thread.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
@@ -40,8 +43,8 @@ $(OBJDIR)/%-pthread.o : $(TSTDIR)/%.c
 $(OBJDIR)/%.o : $(TSTDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o $(LIBDIR)
-	$(CC) --shared -o $@ $<
+$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o $(OBJDIR)/logger.o $(LIBDIR)
+	$(CC) --shared -o $@ $(OBJDIR)/thread.o $(OBJDIR)/logger.o
 
 check : install
 	$(foreach var,$(TST), echo "Test de $(var) avec $(call get_args, $(var)) :"; LD_LIBRARY_PATH=./$(LIBDIR) ./$(var) $(call get_args,$(var)) ;)
