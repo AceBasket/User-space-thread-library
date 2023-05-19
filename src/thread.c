@@ -288,10 +288,8 @@ extern int thread_join(thread_t thread, void **retval)
     while (elm->status != FINISHED)
     {
         // waiting for the thread to finish
-        unblock_sigprof();
         int res = internal_thread_yield();
         assert(!res);
-        block_sigprof();
     }
 
     if (retval != NULL)
@@ -328,7 +326,7 @@ extern void thread_exit(void *retval)
     assert(nb_blocks == 1);
 
     if (len_run_queue() == 0 && current->thread == main_thread) {
-        disarm_timer();
+        assert(nb_blocks == 1);
         exit(EXIT_SUCCESS);
     }
 }
@@ -460,7 +458,7 @@ void free_sleep_queue()
 __attribute__((__destructor__)) void my_end()
 {
     /* free all the threads */
-    assert(nb_blocks == 1);
+    disarm_timer();
     free_sleep_queue();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
