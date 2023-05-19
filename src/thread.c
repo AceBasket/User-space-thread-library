@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#include "logger.h"
+
 enum status
 {
     RUNNING,
@@ -34,7 +36,7 @@ struct thread
     int valgrind_stackid;
 };
 
-int num_threads=0;
+int num_threads = 0;
 
 thread_t main_thread; // id of the main thread
 
@@ -59,27 +61,29 @@ __attribute__((__constructor__)) void my_init()
     if (init_timer() == -1)
     {
         // free(new_thread_s);
-        // printf("init_timer failed\n");
+        log_message(CRITIC, "init_timer failed\n");
         return;
     }
 }
 
+#ifdef DEBUG
 void thread_debug(void)
 {
     struct thread *t;
-    printf("[%p]DEBUGGING\n", thread_self());
+    log_message(DEBUGGING, "[%p]DEBUGGING\n", thread_self());
     SIMPLEQ_FOREACH(t, &head_run_queue, entry)
     {
-        // printf("[%p] %p \n", thread_self(), t->thread);
-        printf("[%p]%p running ? %s\n", thread_self(), t->thread, t->status == RUNNING ? "yes" : "no");
+        log_message(DEBUGGING, "[%p] %p \n", thread_self(), t->thread);
+        log_message(DEBUGGING, "[%p]%p running ? %s\n", thread_self(), t->thread, t->status == RUNNING ? "yes" : "no");
     }
-    printf("[%p]END DEBUGGING\n\n", thread_self());
+    log_message(DEBUGGING, "[%p]END DEBUGGING\n\n", thread_self());
 }
+#endif
 
 int len_run_queue(void)
 {
     // /* get the length of the run queue */
-    // // printf("[%p]len_run_queue\n", thread_self());
+    // log_message(DEBUGGING, "[%p]len_run_queue\n", thread_self());
     // struct thread *t;
     // int len = 0;
     // SIMPLEQ_FOREACH(t, &head_run_queue, entry)
@@ -97,11 +101,14 @@ int len_run_queue(void)
 
 struct thread *go_back_to_main_thread(void)
 {
-    /* Assumes that main thread is still in queue */
-    // printf("[%p]go_back_to_main_thread\n", thread_self());
+/* Assumes that main thread is still in queue */
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p]go_back_to_main_thread\n", th_debug);
+#endif
     // block_sigprof();
     struct thread *main_thread_s = SIMPLEQ_FIRST(&head_sleep_queue);
-    SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);            // remove main thread from the sleep queue
+    SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);              // remove main thread from the sleep queue
     SIMPLEQ_INSERT_HEAD(&head_run_queue, main_thread_s, entry); // insert it into the run queue
     main_thread_s->status = RUNNING;                            // mark it as running
     // unblock_sigprof();
@@ -113,7 +120,10 @@ struct thread *get_first_run_queue_element(void)
     /* get the first element that is running in the queue, all of the finished threads go back to the beginning of the queue */
     // block_sigprof();
     struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
-    // printf("STATUS %d\n",first->status);
+#ifdef DEBUG
+    log_message(DEBUGGING, "STATUS %d\n", first->status);
+#endif
+
     while (first->status == FINISHED)
     {
         SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry); // remove finished thread from the run queue
@@ -150,15 +160,20 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
     unblock_sigprof();
     if (init_timer() == -1)
     {
-        // free(new_thread_s);
-        // printf("init_timer failed\n");
+// free(new_thread_s);
+#ifdef DEBUG
+        log_message(CRITIC, "init_timer failed\n");
+#endif
         return;
     }
     current->retval = func(args);
     unblock_sigprof();
     block_sigprof();
 
-    // printf("[%p] meta_func\n", thread_self());
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] meta_func\n", th_debug);
+#endif
 
     // should only go here when the thread returns without using thread_exit
     if (len_run_queue() != 1)
@@ -189,7 +204,10 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
     // if (func != NULL)
-    //     printf("[%p] thread_create\n", thread_self());
+    // #ifdef DEBUG
+    //     thread_t th_debug = thread_self();
+    //     log_message(DEBUGGING, "[%p] thread_create\n", th_debug);
+    // #endif
     // thread_debug();
     unblock_sigprof();
     block_sigprof(); // Je pense qu'on doit blocker le signal pendant toute la création du thread
@@ -247,12 +265,17 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 // Current thread placed at the beginning of the run queue (--> FIFO)
 extern int thread_yield(void)
 {
-    // printf("[%p] thread_yield\n", thread_self());
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] thread_yield\n", th_debug);
+#endif
     unblock_sigprof();
     block_sigprof();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
-        // printf("NO HEAD FOR QUEUE\n");
+#ifdef DEBUG
+        log_message(CRITIC, "NO HEAD FOR QUEUE\n");
+#endif
         unblock_sigprof();
         return -1;
     }
@@ -291,10 +314,15 @@ extern int thread_yield(void)
 
 extern int thread_join(thread_t thread, void **retval)
 {
-    // printf("[%p] thread_join\n", thread_self());
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] thread_join\n", th_debug);
+#endif
     unblock_sigprof();
     block_sigprof();
-    // printf("head_sleep_queue = %p\n", &head_sleep_queue);
+#ifdef DEBUG
+    log_message(DEBUGGING, "head_sleep_queue = %p\n", &head_sleep_queue);
+#endif
     struct thread *current = get_first_run_queue_element();
     thread_t current_thread = current->thread;
 
@@ -332,7 +360,9 @@ extern int thread_join(thread_t thread, void **retval)
 
     if (elm_found_bool == 0)
     {
-        // printf("thread not found\n");
+#ifdef DEBUG
+        log_message(DEBUGGING, "thread not found\n");
+#endif DEBUG
         unblock_sigprof();
         // thread not found
         return -1;
@@ -362,7 +392,10 @@ extern int thread_join(thread_t thread, void **retval)
 
 extern void thread_exit(void *retval)
 {
-    // printf("[%p] thread_exit\n", thread_self());
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] thread_exit\n", th_debug);
+#endif
     /* Mark the thread as finished and switch context to newt thread */
     unblock_sigprof();
     block_sigprof();
@@ -390,10 +423,16 @@ extern void thread_exit(void *retval)
 static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 {
     (void)signum;
-    // printf("[%p] SIGPROF\n", thread_self());
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] SIGPROF\n", th_debug);
+#endif
     unblock_sigprof();
     block_sigprof();
-    // printf("[%p] SIGPROF\n", thread_self());
+#ifdef DEBUG
+    th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] SIGPROF\n", th_debug);
+#endif
     // puts("SIGPROF");
 
     // This code can be useful to change thread context with the context given by signal handler
@@ -405,24 +444,24 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     }
     // Backup the current context
     struct thread *current = get_first_run_queue_element();
-    // ucontext_t *stored_context = &current->uc;
+// ucontext_t *stored_context = &current->uc;
 
+/* On avait souvent void *context = NULL */
+// ucontext_t *updated = (ucontext_t *)context;
 
-    /* On avait souvent void *context = NULL */
-    // ucontext_t *updated = (ucontext_t *)context;
-
-    // current->uc.uc_flags = updated->uc_flags;
-    // current->uc.uc_link = updated->uc_link;
-    // current->uc.uc_mcontext = updated->uc_mcontext;
-    // current->uc.uc_sigmask = updated->uc_sigmask;
-    // printf("current->uc.uc_stack.ss_sp = %p\n", current->uc.uc_stack.ss_sp);
-    // printf("current->uc.uc_stack.ss_size = %ld\n", current->uc.uc_stack.ss_size);
-    // printf("current->uc.uc_stack.ss_flags = %d\n", current->uc.uc_stack.ss_flags);
-    // printf("current->uc = %p\n", &current->uc);
+// current->uc.uc_flags = updated->uc_flags;
+// current->uc.uc_link = updated->uc_link;
+// current->uc.uc_mcontext = updated->uc_mcontext;
+// current->uc.uc_sigmask = updated->uc_sigmask;
+#ifdef DEBUG
+    log_message(DEBUGGING, "current->uc.uc_stack.ss_sp = %p\n", current->uc.uc_stack.ss_sp);
+    log_message(DEBUGGING, "current->uc.uc_stack.ss_size = %ld\n", current->uc.uc_stack.ss_size);
+    log_message(DEBUGGING, "current->uc.uc_stack.ss_flags = %d\n", current->uc.uc_stack.ss_flags);
+    log_message(DEBUGGING, "current->uc = %p\n", &current->uc);
+#endif
 
     // setcontext(&current->uc);
     // thread_yield();
-
 
     if (SIMPLEQ_FIRST(&head_run_queue) == SIMPLEQ_LAST(&head_run_queue, thread, entry))
     {
@@ -434,18 +473,23 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
     SIMPLEQ_INSERT_TAIL(&head_run_queue, current, entry);
     struct thread *next_executed_thread = get_first_run_queue_element();
-    // printf("next_executed_thread->uc.uc_stack.ss_sp = %p\n", next_executed_thread->uc.uc_stack.ss_sp);
-    // printf("next_executed_thread->uc.uc_stack.ss_size = %ld\n", next_executed_thread->uc.uc_stack.ss_size);
-    // printf("next_executed_thread->uc.uc_stack.ss_flags = %d\n", next_executed_thread->uc.uc_stack.ss_flags);
-    // printf("next_executed_thread->uc = %p\n", &next_executed_thread->uc);
+#ifdef DEBUG
+    log_message(DEBUGGING, "next_executed_thread->uc.uc_stack.ss_sp = %p\n", next_executed_thread->uc.uc_stack.ss_sp);
+    log_message(DEBUGGING, "next_executed_thread->uc.uc_stack.ss_size = %ld\n", next_executed_thread->uc.uc_stack.ss_size);
+    log_message(DEBUGGING, "next_executed_thread->uc.uc_stack.ss_flags = %d\n", next_executed_thread->uc.uc_stack.ss_flags);
+    log_message(DEBUGGING, "next_executed_thread->uc = %p\n", &next_executed_thread->uc);
+#endif
     swapcontext(&current->uc, &next_executed_thread->uc);
     unblock_sigprof();
 }
 
 static int init_timer(void)
 {
-    /* Every 10 ms of thread execution, a SIGPROF signal is sent */
-    // printf("[%p] init_timer\n", thread_self());
+/* Every 10 ms of thread execution, a SIGPROF signal is sent */
+#ifdef DEBUG
+    thread_t th_debug = thread_self();
+    log_message(DEBUGGING, "[%p] init_timer\n", th_debug);
+#endif
     sigset_t all;
     sigfillset(&all);
 
@@ -463,20 +507,22 @@ static int init_timer(void)
     struct itimerval timer = {
         // {1, 0},
         {0, 10000}, // 10 000 microseconds = 10 ms
-        {0, 1} // arms the timer as soon as possible
+        {0, 1}      // arms the timer as soon as possible
     };
 
     // Enable timer
     if (setitimer(ITIMER_PROF, &timer, NULL) == -1)
     {
-        // printf("setitimer failed\n");
+#ifdef DEBUG
+        log_message(DEBUGGING, "setitimer failed\n");
+#endif
         if (errno == EFAULT)
         {
-            printf("DEFAULT: new_value is not a valid pointer\n");
+            log_message(CRITIC, "DEFAULT: new_value is not a valid pointer\n");
         }
         else if (errno == EINVAL)
         {
-            printf("which is not one of ITIMER_REAL, ITIMER_VIRTUAL, or ITIMER_PROF; or one of the tv_usec fields in the structure pointed to by new_value contains a value outside the range 0 to 999999\n");
+            log_message(CRITIC, "which is not one of ITIMER_REAL, ITIMER_VIRTUAL, or ITIMER_PROF; or one of the tv_usec fields in the structure pointed to by new_value contains a value outside the range 0 to 999999\n");
         }
         if (sigaction(SIGPROF, &old_sigaction, NULL) == -1)
         {
