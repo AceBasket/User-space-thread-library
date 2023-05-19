@@ -46,6 +46,7 @@ sigset_t sigprof;
 
 int nb_blocks = 0;
 static int init_timer(void);
+static int disarm_timer(void);
 static void block_sigprof(void);
 static void unblock_sigprof(void);
 
@@ -63,12 +64,6 @@ __attribute__((__constructor__)) void my_init()
 
     thread_create(&main_thread, NULL, NULL);
     printf("main thread id: %p\n", main_thread);
-
-    if (init_timer() == -1)
-    {
-        printf("init_timer failed\n");
-        return;
-    }
 }
 
 void thread_debug(void)
@@ -84,20 +79,6 @@ void thread_debug(void)
 
 int len_run_queue(void)
 {
-    // /* get the length of the run queue */
-    // // printf("[%p]len_run_queue\n", thread_self());
-    // struct thread *t;
-    // int len = 0;
-    // SIMPLEQ_FOREACH(t, &head_run_queue, entry)
-    // {
-    //     len++;
-    //     if (t->status == RUNNING)
-    //     { // only count the running threads
-    //     }
-    // }
-
-    // return len;
-
     return num_threads;
 }
 
@@ -158,7 +139,6 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
     unblock_sigprof(); // unblock SIGPROF signal --> signal est blocké puisqu'on arrive après un swapcontext qui bloque le signal
 
     thread_exit(func(args)); // exit the thread
-    block_sigprof();
 }
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
@@ -195,18 +175,23 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     SIMPLEQ_INSERT_TAIL(&head_run_queue, new_thread_s, entry);
     unblock_sigprof();
     num_threads++;
+
+    if (init_timer() == -1)
+    {
+        printf("init_timer failed\n");
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
 
 // Current thread placed at the beginning of the run queue (--> FIFO)
-extern int thread_yield(void)
+int internal_thread_yield(void)
 {
     // printf("[%p] thread_yield\n", thread_self());
-    block_sigprof();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
         // printf("NO HEAD FOR QUEUE\n");
-        unblock_sigprof();
         return -1;
     }
 
@@ -215,7 +200,6 @@ extern int thread_yield(void)
     if (len_run_queue() == 1)
     {
         // no need to yield if only one running thread in queue
-        unblock_sigprof();
         return EXIT_SUCCESS;
     }
 
@@ -225,7 +209,6 @@ extern int thread_yield(void)
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
         // error if the queue becomes empty
-        unblock_sigprof();
         return -1;
     }
 
@@ -237,9 +220,15 @@ extern int thread_yield(void)
     assert(nb_blocks == 1);
     swapcontext(&current->uc, &next_executed_thread->uc);
     assert(nb_blocks == 1);
-    unblock_sigprof();
 
     return EXIT_SUCCESS;
+}
+
+extern int thread_yield(void) {
+    block_sigprof();
+    int res = internal_thread_yield();
+    unblock_sigprof();
+    return res;
 }
 
 extern int thread_join(thread_t thread, void **retval)
@@ -293,7 +282,7 @@ extern int thread_join(thread_t thread, void **retval)
     {
         // waiting for the thread to finish
         unblock_sigprof();
-        int res = thread_yield();
+        int res = internal_thread_yield();
         assert(!res);
         block_sigprof();
     }
@@ -341,7 +330,9 @@ static void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 {
     (void)signum;
     assert(nb_blocks == 0);
-    thread_yield();
+    block_sigprof();
+    internal_thread_yield();
+    unblock_sigprof();
     assert(nb_blocks == 0);
 }
 
