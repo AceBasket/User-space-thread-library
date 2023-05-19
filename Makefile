@@ -63,4 +63,4 @@ graphs : threads pthreads
 	python3 graphs.py $(GRAPH_FILES)
 
 clean : 
-	rm -R ${BINDIR}/* ${LIBDIR}/* ${OBJDIR}/*
+	rm -R -f ${BINDIR}/* ${LIBDIR}/* ${OBJDIR}/*
