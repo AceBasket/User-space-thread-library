@@ -2,7 +2,11 @@
 #define THREAD_STRUCT_H
 #include <ucontext.h>
 
-enum status { RUNNING, FINISHED };
+
+enum thread_status {
+    RUNNING,
+    FINISHED
+};
 
 struct thread {
     thread_t thread;
@@ -12,7 +16,7 @@ struct thread {
     void *(*func)(void *);
     void *funcarg;
     void *retval;
-    enum status status;
+    enum thread_status status;
     int valgrind_stackid;
 };
 
