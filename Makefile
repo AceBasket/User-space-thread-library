@@ -8,14 +8,15 @@ OBJDIR=$(INSTALLDIR)/obj
 
 CC=gcc
 CFLAGS=-Wall -g
-CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR) -D$(DEBUG) $(DEADLOCK)
+CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR) $(DEBUG) $(NOASSERT) $(DEADLOCK)
 LDFLAGS=-L$(ROOTDIR)/install/lib
 LDLIBS=-lthread
 VALGRIND=valgrind --leak-check=full --show-reachable=yes --track-origins=yes
 
 GRAPH_FILES?=
 DEADLOCK?=
-DEBUG ?= NDEBUG
+DEBUG?=
+NOASSERT?= -DNDEBUG
 
 TST=$(addprefix $(BINDIR)/, $(shell /usr/bin/cat tests.csv | cut -d ";" -f 1))
 PTHREAD_TST=$(addsuffix -pthread, $(TST))

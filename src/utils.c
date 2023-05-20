@@ -85,8 +85,6 @@ void log_message(const enum ERROR_TYPE type, const char *message, ...)
     vfprintf(stderr, message, args);
     fprintf(stderr, "\n");
     va_end(args);
-
-    fclose(stderr);
 }
 
 void exit_if(int condition, const char *prefix)
@@ -293,9 +291,9 @@ int mutex_yield(thread_mutex_t *mutex)
 
 int internal_thread_yield(void)
 {
-#ifdef DEBUG
-    log_message(DEBUGGING, "[%p] internal_thread_yield\n", thread_self());
-#endif
+    // #ifdef DEBUG
+    //     log_message(DEBUGGING, "[%p] internal_thread_yield\n", get_first_run_queue_element());
+    // #endif
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
         return -1;
