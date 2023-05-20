@@ -33,7 +33,7 @@ $(BINDIR) $(LIBDIR) :
 $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR)/logger.o : $(SRCDIR)/logger.c
+$(OBJDIR)/utils.o : $(SRCDIR)/utils.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -c $< -o $@
 
 $(OBJDIR)/thread.o : $(SRCDIR)/thread.c
