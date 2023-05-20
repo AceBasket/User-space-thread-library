@@ -8,7 +8,10 @@
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
+#include "queue.h"
+
 typedef void *thread_t;
+typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
 
 /* recuperer l'identifiant du thread courant.
  */

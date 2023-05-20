@@ -1,6 +1,6 @@
 #include <ucontext.h>
 #include "thread.h"
-#include "queue.h"
+// #include "queue.h"
 #include <valgrind/valgrind.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/time.h>
+#include "adj_list.h"
+#include "thread_struct.h"
 
 enum status
 {
@@ -51,6 +53,7 @@ __attribute__((__constructor__)) void my_init()
     head_run_queue = head_run_queue_tmp;
     head_t head_sleep_queue_tmp = SIMPLEQ_HEAD_INITIALIZER(head_sleep_queue);
     head_sleep_queue = head_sleep_queue_tmp;
+    adj_list_init(&head_run_queue);
     thread_create(&main_thread, NULL, NULL);
     if (init_timer() == -1)
     {
@@ -150,6 +153,8 @@ void meta_func(void *(*func)(void *), void *args, struct thread *current)
 
     // printf("[%p] meta_func\n", thread_self());
 
+    // removing the thread from the adjacency list
+    remove_edge_when_finished(current->thread);
     // should only go here when the thread returns without using thread_exit
     if (len_run_queue() != 1)
     {
@@ -321,8 +326,14 @@ extern int thread_join(thread_t thread, void **retval)
         return -1;
     }
 
-    while (elm->status != FINISHED)
-    {
+    add_edge(current_thread, thread);
+    if (has_cycle(current_thread)) {
+        printf("cycle detected when trying to join %p with %p\n", current_thread, thread);
+        remove_edge(current_thread, thread);
+        return 35;
+    }
+
+    while (elm->status != FINISHED) {
         // waiting for the thread to finish
         // block_sigprof();
         unblock_sigprof();
@@ -351,7 +362,8 @@ extern void thread_exit(void *retval)
     current->retval = retval;
     // unblock_sigprof();
     current->status = FINISHED;
-
+    // removing the thread from the adjacency list
+    remove_edge_when_finished(current->thread);
     struct thread *next_executed_thread = get_first_run_queue_element();
     if (current->thread == main_thread)
     {
@@ -522,6 +534,7 @@ __attribute__((__destructor__)) void my_end()
         // free the thread structure
         free(current);
     }
+    free_adj_list();
 }
 
 head_t head_mutex;

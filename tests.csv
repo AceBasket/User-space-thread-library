@@ -12,3 +12,7 @@
 61-mutex;20
 62-mutex;20
 71-preemption;5
+81-deadlock;
+82-deadlock-many-join;
+83-deadlock-multiple-join-on-same-th;
+84-deadlock-join-all;
