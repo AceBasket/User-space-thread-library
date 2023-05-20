@@ -8,12 +8,14 @@ OBJDIR=$(INSTALLDIR)/obj
 
 CC=gcc
 CFLAGS=-Wall -g
-CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR)
+CPPFLAGS=-I$(SRCDIR) -I$(TSTDIR) -D$(DEBUG)
 LDFLAGS=-L$(ROOTDIR)/install/lib
 LDLIBS=-lthread
 VALGRIND=valgrind --leak-check=full --show-reachable=yes --track-origins=yes
 
 GRAPH_FILES?=
+
+DEBUG ?= NDEBUG
 
 TST=$(addprefix $(BINDIR)/, $(shell /usr/bin/cat tests.csv | cut -d ";" -f 1))
 PTHREAD_TST=$(addsuffix -pthread, $(TST))
@@ -43,8 +45,8 @@ $(OBJDIR)/%-pthread.o : $(TSTDIR)/%.c
 $(OBJDIR)/%.o : $(TSTDIR)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o $(OBJDIR)/logger.o $(LIBDIR)
-	$(CC) --shared -o $@ $(OBJDIR)/thread.o $(OBJDIR)/logger.o
+$(LIBDIR)/libthread.so : $(OBJDIR)/thread.o $(OBJDIR)/utils.o $(LIBDIR)
+	$(CC) --shared -o $@ $(OBJDIR)/thread.o $(OBJDIR)/utils.o
 
 check : install
 	$(foreach var,$(TST), echo "Test de $(var) avec $(call get_args, $(var)) :"; LD_LIBRARY_PATH=./$(LIBDIR) ./$(var) $(call get_args,$(var)) ;)

@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    printf(" main thread = %p\n", thread_self());
+    printf(" main thread = %p\n", (void *)thread_self());
 
     values = calloc(nb + 1, sizeof(long));
     // for (int i_values = 0; i_values < nb + 1; i_values++) {
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     /* on cree tous les threads */
     for (i = 0; i < nb; i++) {
         err = thread_create(&th[i], thfunc, (void *)((intptr_t)i));
-        printf("thread th[%d] = %p created\n", i, th[i]);
+        printf("thread th[%d] = %p created\n", i, (void *)th[i]);
         assert(!err);
     }
 
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     /* on les join tous, maintenant qu'ils sont tous morts */
     score = values[nb];
     for (i = 0; i < nb; i++) {
-        printf("\njoining th[%d] = %p\n", i, th[i]);
+        printf("\njoining th[%d] = %p\n", i, (void *)th[i]);
         err = thread_join(th[i], NULL);
         assert(!err);
 
