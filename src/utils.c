@@ -22,7 +22,9 @@
 #include "utils.h"
 
 int nb_run_queue_threads = 0;
+#ifdef PREEMPTION
 int nb_blocks = 0;
+#endif
 
 thread_t main_thread; // id of the main thread
 
@@ -150,7 +152,7 @@ struct thread *get_first_run_queue_element(void)
 
     return first;
 }
-
+#ifdef PREEMPTION
 void sigprof_handler(int signum, siginfo_t *nfo, void *context)
 {
     (void)signum;
@@ -252,6 +254,7 @@ void unblock_sigprof(void)
         exit(EXIT_FAILURE);
     }
 }
+#endif
 
 void free_sleep_queue(void)
 {
@@ -283,17 +286,18 @@ int mutex_yield(thread_mutex_t *mutex)
     remove_run_queue(next_executed_thread);
     insert_head_run_queue(next_executed_thread);
 
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
     swapcontext(&current->uc, &next_executed_thread->uc);
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
     return EXIT_SUCCESS;
 }
 
 int internal_thread_yield(void)
 {
-    // #ifdef DEBUG
-    //     log_message(DEBUGGING, "[%p] internal_thread_yield\n", get_first_run_queue_element());
-    // #endif
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
         return -1;
@@ -321,9 +325,13 @@ int internal_thread_yield(void)
     // swap context with the next thread in the queue
     struct thread *next_executed_thread = get_first_run_queue_element();
 
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
     swapcontext(&current->uc, &next_executed_thread->uc);
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
 
     return EXIT_SUCCESS;
 }

@@ -56,15 +56,18 @@ extern thread_t thread_self(void)
 void meta_func(void *(*func)(void *), void *args, struct thread *current)
 {
     /* function that is called by makecontext */
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
     unblock_sigprof(); // unblock SIGPROF signal --> signal est blocké puisqu'on arrive après un swapcontext qui bloque le signal
-
+#endif
     thread_exit(func(args)); // exit the thread
 }
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     struct thread *new_thread_s = malloc(sizeof(struct thread));
     new_thread_s->thread = (thread_t)new_thread_s;
     *newthread = new_thread_s->thread;
@@ -85,34 +88,45 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
         new_thread_s->uc.uc_stack.ss_size = SIGSTKSZ;
         new_thread_s->uc.uc_stack.ss_sp = malloc(new_thread_s->uc.uc_stack.ss_size);
         new_thread_s->valgrind_stackid = VALGRIND_STACK_REGISTER(new_thread_s->uc.uc_stack.ss_sp, new_thread_s->uc.uc_stack.ss_sp + new_thread_s->uc.uc_stack.ss_size);
+#ifdef PREEMPTION
         unblock_sigprof();
+#endif
         makecontext(&new_thread_s->uc, (void (*)(void))meta_func, 3, func, funcarg, new_thread_s);
+#ifdef PREEMPTION
         block_sigprof();
+#endif
     }
     new_thread_s->func = func;
     new_thread_s->funcarg = funcarg;
 
     insert_tail_run_queue(new_thread_s);
     nb_total_threads++;
+#ifdef PREEMPTION
     unblock_sigprof();
-
-    // if (nb_total_threads == 2) {
-    //     // if it is the second thread created, initialize the timer
-    //     // Useless for only one thread
-    //     if (init_timer() == -1) {
-    //         log_message(CRITIC, "init_timer failed\n");
-    //         return EXIT_FAILURE;
-    //     }
-    // }
+    if (nb_total_threads == 2)
+    {
+        // if it is the second thread created, initialize the timer
+        // Useless for only one thread
+        if (init_timer() == -1)
+        {
+            log_message(CRITIC, "init_timer failed\n");
+            return EXIT_FAILURE;
+        }
+    }
+#endif
 
     return EXIT_SUCCESS;
 }
 
 extern int thread_yield(void)
 {
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     int res = internal_thread_yield();
+#ifdef PREEMPTION
     unblock_sigprof();
+#endif
     return res;
 }
 
@@ -121,13 +135,17 @@ extern int thread_join(thread_t thread, void **retval)
 #ifdef DEBUG
     log_message(DEBUGGING, "[%p] thread_join", thread_self());
 #endif
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     thread_t current_thread = thread_self();
 
     if (current_thread == thread)
     {
-        // can't wait for itself
+// can't wait for itself
+#ifdef PREEMPTION
         unblock_sigprof();
+#endif
         return -1;
     }
 
@@ -161,7 +179,9 @@ extern int thread_join(thread_t thread, void **retval)
 #ifdef DEBUG
         log_message(DEBUGGING, "thread not found");
 #endif
+#ifdef PREEMPTION
         unblock_sigprof();
+#endif
         // thread not found
         return -1;
     }
@@ -170,7 +190,7 @@ extern int thread_join(thread_t thread, void **retval)
     add_edge(current_thread, thread);
     if (has_cycle(current_thread))
     {
-        printf("cycle detected when trying to join %p with %p", current_thread, thread);
+        log_message(CRITIC, "cycle detected when trying to join %p with %p", current_thread, thread);
         remove_edge(current_thread, thread);
         return 35;
     }
@@ -190,7 +210,9 @@ extern int thread_join(thread_t thread, void **retval)
         // store return value
         *retval = elm->retval;
     }
+#ifdef PREEMPTION
     unblock_sigprof();
+#endif
     return EXIT_SUCCESS;
 }
 
@@ -200,8 +222,10 @@ extern void thread_exit(void *retval)
     thread_t th_debug = thread_self();
     log_message(DEBUGGING, "[%p] thread_exit", th_debug);
 #endif
-    /* Mark the thread as finished and switch context to newt thread */
+/* Mark the thread as finished and switch context to newt thread */
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     struct thread *current = get_first_run_queue_element();
     current->retval = retval;
     current->status = FINISHED;
@@ -226,22 +250,30 @@ extern void thread_exit(void *retval)
         next_executed_thread = get_first_run_queue_element();
     }
 
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
     swapcontext(&current->uc, &next_executed_thread->uc);
+#ifdef PREEMPTION
     assert(nb_blocks == 1);
+#endif
 
     /* If the current thread is main, exit */
     if (len_run_queue() == 1 && current->thread == main_thread)
     {
+#ifdef PREEMPTION
         assert(nb_blocks == 1);
+#endif
         exit(EXIT_SUCCESS);
     }
 }
 
 __attribute__((__destructor__)) void my_end()
 {
-    /* free all the threads */
+/* free all the threads */
+#ifdef PREEMPTION
     disarm_timer();
+#endif
     free_sleep_queue();
     if (SIMPLEQ_EMPTY(&head_run_queue))
     {
@@ -268,13 +300,17 @@ __attribute__((__destructor__)) void my_end()
 
 int thread_mutex_init(thread_mutex_t *mutex)
 {
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     mutex->locker = NULL;
     mutex->status = UNLOCK;
 #ifdef DEBUG
     log_message(DEBUGGING, "mutex initialized [%p]", mutex);
 #endif
+#ifdef PREEMPTION
     unblock_sigprof();
+#endif
     return EXIT_SUCCESS;
 }
 
@@ -289,22 +325,30 @@ int thread_mutex_destroy(thread_mutex_t *mutex)
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     while (mutex->status == 1)
     {
         mutex_yield(mutex);
     }
     mutex->status = 1;
     mutex->locker = get_first_run_queue_element();
+#ifdef PREEMPTION
     unblock_sigprof();
+#endif
     return EXIT_SUCCESS;
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
+#ifdef PREEMPTION
     block_sigprof();
+#endif
     mutex->status = 0;
     mutex->locker = NULL;
+#ifdef PREEMPTION
     unblock_sigprof();
+#endif
     return EXIT_SUCCESS;
 }

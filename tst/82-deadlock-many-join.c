@@ -8,9 +8,10 @@
 static thread_t th0, th1, th2, th3, th4;
 int totalerr = 0;
 
-static void *thfunc4(void *dummy __attribute__((unused))) {
-    void *res;
-    int err;
+static void *thfunc4(void *dummy __attribute__((unused)))
+{
+    // void *res;
+    // int err;
 
     sleep(0.5);
     // err = thread_join(th3, &res);
@@ -25,7 +26,6 @@ static void *thfunc4(void *dummy __attribute__((unused))) {
     // printf("join th4->th2 = %d\n", err);
     // totalerr += err;
 
-
     // err = thread_join(th0, &res);
     // printf("join th4->th0 = %d\n", err);
     // totalerr += err;
@@ -34,7 +34,8 @@ static void *thfunc4(void *dummy __attribute__((unused))) {
     return NULL;
 }
 
-static void *thfunc3(void *dummy __attribute__((unused))) {
+static void *thfunc3(void *dummy __attribute__((unused)))
+{
     void *res;
     int err = thread_create(&th4, thfunc4, NULL);
     assert(!err);
@@ -47,7 +48,8 @@ static void *thfunc3(void *dummy __attribute__((unused))) {
     return NULL;
 }
 
-static void *thfunc2(void *dummy __attribute__((unused))) {
+static void *thfunc2(void *dummy __attribute__((unused)))
+{
     void *res;
     int err = thread_create(&th3, thfunc3, NULL);
     assert(!err);
@@ -63,8 +65,8 @@ static void *thfunc2(void *dummy __attribute__((unused))) {
     return NULL;
 }
 
-
-static void *thfunc1(void *dummy __attribute__((unused))) {
+static void *thfunc1(void *dummy __attribute__((unused)))
+{
     void *res;
     int err = thread_create(&th2, thfunc2, NULL);
     assert(!err);
@@ -77,7 +79,8 @@ static void *thfunc1(void *dummy __attribute__((unused))) {
     return NULL;
 }
 
-int main() {
+int main()
+{
     void *res;
     int err;
 
@@ -93,9 +96,12 @@ int main() {
 
     // assert(totalerr == EDEADLK);
 
-    if (totalerr == EDEADLK) {
+    if (totalerr == EDEADLK)
+    {
         return EXIT_SUCCESS;
-    } else {
+    }
+    else
+    {
         return EXIT_FAILURE;
     }
 }
