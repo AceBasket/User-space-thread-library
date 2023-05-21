@@ -35,7 +35,7 @@ void adj_list_debug() {
 		printf("tid: %p\n", curr_entry->tid);
 		node_t* curr_node = curr_entry->head_joined_threads_arr;
 		while (curr_node != NULL) {
-			printf("-> %p ", curr_node->thread->thread);
+			printf("-> %p ", curr_node->thread->thread_id);
 			curr_node = curr_node->next;
 		}
 		printf("\n");
@@ -53,7 +53,7 @@ struct thread *get_thread_by_tid(thread_t tid) {
     struct thread *elm;
     // look for the thread in the run queue
     SIMPLEQ_FOREACH(elm, head_run_queue, entry) {
-        if (elm->thread == tid)
+        if (elm->thread_id == tid)
             return elm;
     }
     return NULL;
@@ -135,7 +135,7 @@ void remove_edge(thread_t src_tid, thread_t dest_tid) {
     node_t* prev_node = NULL;
     node_t* curr_node = src_th_adj_list_entry->head_joined_threads_arr;
     while (curr_node != NULL) {
-        if (curr_node->thread->thread == dest_tid) {
+        if (curr_node->thread->thread_id == dest_tid) {
             if (prev_node == NULL) {
                 src_th_adj_list_entry->head_joined_threads_arr = curr_node->next;
             } else {
@@ -191,7 +191,7 @@ void remove_edge_when_finished(thread_t tid) {
                 node_t* prev_node = NULL;
                 node_t* curr_node = curr_entry->head_joined_threads_arr;
                 while (curr_node != NULL) {
-                    if (curr_node->thread->thread == tid) {
+                    if (curr_node->thread->thread_id == tid) {
                         if (prev_node == NULL) {
                             curr_entry->head_joined_threads_arr = curr_node->next;
                         } else {
@@ -239,7 +239,7 @@ int has_cycle_rec(thread_t tid, int* visited, int* rec_stack) {
             if (curr_node->thread == NULL) {
                 return 0;
             }
-            thread_t neighbor_tid = curr_node->thread->thread;
+            thread_t neighbor_tid = curr_node->thread->thread_id;
             int th_nghbr_idx = get_thread_adj_list_idx(neighbor_tid);
             if (!visited[th_nghbr_idx] && has_cycle_rec(neighbor_tid, visited, rec_stack)) {
                 return 1;

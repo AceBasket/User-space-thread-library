@@ -33,14 +33,12 @@ head_t head_sleep_queue;
 
 sigset_t sigprof;
 
-void log_message(const enum ERROR_TYPE type, const char *message, ...)
-{
+void log_message(const enum ERROR_TYPE type, const char *message, ...) {
     va_list args;
     va_start(args, message);
     // FILE *file = fopen("server.log", "a");
     char *error_message = "Info";
-    switch (type)
-    {
+    switch (type) {
     case DEBUGGING:
     {
         error_message = "Debug";
@@ -89,33 +87,29 @@ void log_message(const enum ERROR_TYPE type, const char *message, ...)
     va_end(args);
 }
 
-void exit_if(int condition, const char *prefix)
-{
-    if (condition)
-    {
-        if (errno != 0)
-        {
+void exit_if(int condition, const char *prefix) {
+    if (condition) {
+        if (errno != 0) {
             log_message(CRITIC, "%s -> %s", prefix, strerror(errno));
             perror(prefix);
-        }
-        else
-        {
+        } else {
             log_message(CRITIC, prefix);
         }
         exit(EXIT_FAILURE);
     }
 }
 
-int len_run_queue(void)
-{
+int len_run_queue(void) {
     return nb_run_queue_threads;
 }
 
-struct thread *go_back_to_main_thread(void)
-{
+struct thread *go_back_to_main_thread(void) {
     /* Assumes that there is only one thread in run queue (not main) and it is finished */
     struct thread *last_thread = SIMPLEQ_FIRST(&head_run_queue);
-    assert(last_thread->thread != main_thread);
+    if (last_thread->thread_id == main_thread) {
+        // the calling thread is the main thread
+        return last_thread;
+    }
     assert(last_thread->status == FINISHED);
     remove_head_run_queue(); // remove finished thread from the run queue
 
@@ -129,22 +123,17 @@ struct thread *go_back_to_main_thread(void)
     return main_thread_s;
 }
 
-struct thread *get_first_run_queue_element(void)
-{
+struct thread *get_first_run_queue_element(void) {
     /* get the first element that is running in the queue, all of the finished threads go back to the beginning of the queue */
 
     struct thread *first = SIMPLEQ_FIRST(&head_run_queue);
-    while (first->status == FINISHED)
-    {
+    while (first->status == FINISHED) {
         SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry); // remove finished thread from the run queue
         nb_run_queue_threads--;
-        if (first->thread == main_thread)
-        {
-            // if the main thread is finished, we need to keep it in an accessible place (--> end of sleep queue)
+        if (first->thread_id == main_thread) {
+            // if the main thread is finished, we need to keep it in an accessible place (--> head of sleep queue)
             SIMPLEQ_INSERT_HEAD(&head_sleep_queue, first, entry);
-        }
-        else
-        {
+        } else {
             SIMPLEQ_INSERT_TAIL(&head_sleep_queue, first, entry); // insert it into the sleep queue
         }
         first = SIMPLEQ_FIRST(&head_run_queue); // get the new first element of the run queue
@@ -153,8 +142,7 @@ struct thread *get_first_run_queue_element(void)
     return first;
 }
 #ifdef PREEMPTION
-void sigprof_handler(int signum, siginfo_t *nfo, void *context)
-{
+void sigprof_handler(int signum, siginfo_t *nfo, void *context) {
     (void)signum;
     assert(nb_blocks == 0);
     block_sigprof();
@@ -163,8 +151,7 @@ void sigprof_handler(int signum, siginfo_t *nfo, void *context)
     assert(nb_blocks == 0);
 }
 
-int init_timer(void)
-{
+int init_timer(void) {
 /* Every 10 ms of thread execution, a SIGPROF signal is sent */
 #ifdef DEBUG
     thread_t th_debug = thread_self();
@@ -176,11 +163,10 @@ int init_timer(void)
     struct sigaction sa_alarm = {
         .sa_sigaction = sigprof_handler,
         .sa_mask = all,
-        .sa_flags = SA_SIGINFO | SA_RESTART};
+        .sa_flags = SA_SIGINFO | SA_RESTART };
 
     struct sigaction old_sigaction;
-    if (sigaction(SIGPROF, &sa_alarm, &old_sigaction) == -1)
-    {
+    if (sigaction(SIGPROF, &sa_alarm, &old_sigaction) == -1) {
         perror("sigaction");
         return EXIT_FAILURE;
     }
@@ -188,24 +174,19 @@ int init_timer(void)
         .it_interval = {
             .tv_sec = 0,
             .tv_usec = 10000},
-        .it_value = {.tv_sec = 0, .tv_usec = 10000}};
+        .it_value = {.tv_sec = 0, .tv_usec = 10000} };
 
     // Enable timer
-    if (setitimer(ITIMER_PROF, &timer, NULL) == -1)
-    {
+    if (setitimer(ITIMER_PROF, &timer, NULL) == -1) {
 #ifdef DEBUG
         log_message(DEBUGGING, "setitimer failed\n");
 #endif
-        if (errno == EFAULT)
-        {
+        if (errno == EFAULT) {
             log_message(CRITIC, "DEFAULT: new_value is not a valid pointer\n");
-        }
-        else if (errno == EINVAL)
-        {
+        } else if (errno == EINVAL) {
             log_message(CRITIC, "which is not one of ITIMER_REAL, ITIMER_VIRTUAL, or ITIMER_PROF; or one of the tv_usec fields in the structure pointed to by new_value contains a value outside the range 0 to 999999\n");
         }
-        if (sigaction(SIGPROF, &old_sigaction, NULL) == -1)
-        {
+        if (sigaction(SIGPROF, &old_sigaction, NULL) == -1) {
             perror("sigaction");
             return -1;
         }
@@ -214,27 +195,23 @@ int init_timer(void)
     return EXIT_SUCCESS;
 }
 
-int disarm_timer(void)
-{
+int disarm_timer(void) {
     struct itimerval timer = {
         .it_interval = {
             .tv_sec = 0,
             .tv_usec = 0},
-        .it_value = {.tv_sec = 0, .tv_usec = 0}};
+        .it_value = {.tv_sec = 0, .tv_usec = 0} };
 
     // Disable timer
-    if (setitimer(ITIMER_PROF, &timer, NULL) == -1)
-    {
+    if (setitimer(ITIMER_PROF, &timer, NULL) == -1) {
         perror("setitimer");
         return -1;
     }
     return EXIT_SUCCESS;
 }
 
-void block_sigprof(void)
-{
-    if (sigprocmask(SIG_BLOCK, &sigprof, NULL) == -1)
-    {
+void block_sigprof(void) {
+    if (sigprocmask(SIG_BLOCK, &sigprof, NULL) == -1) {
         perror("sigprocmask");
         exit(EXIT_FAILURE);
     }
@@ -243,28 +220,26 @@ void block_sigprof(void)
     assert(nb_blocks == 1);
 }
 
-void unblock_sigprof(void)
-{
+void unblock_sigprof(void) {
     nb_blocks--;
     assert(nb_blocks == 0);
 
-    if (sigprocmask(SIG_UNBLOCK, &sigprof, NULL) == -1)
-    {
+    if (sigprocmask(SIG_UNBLOCK, &sigprof, NULL) == -1) {
         perror("sigprocmask");
         exit(EXIT_FAILURE);
     }
 }
 #endif
 
-void free_sleep_queue(void)
-{
-    while (!SIMPLEQ_EMPTY(&head_sleep_queue))
-    {
+void free_sleep_queue(void) {
+    while (!SIMPLEQ_EMPTY(&head_sleep_queue)) {
         struct thread *current = SIMPLEQ_FIRST(&head_sleep_queue);
 #ifdef DEBUG
         log_message(DEBUGGING, "freeing thread %p\n", current->thread);
 #endif
-        assert(current->thread != main_thread);
+        if (current->thread_id == main_thread) {
+            continue;
+        }
         SIMPLEQ_REMOVE_HEAD(&head_sleep_queue, entry);
         VALGRIND_STACK_DEREGISTER(current->valgrind_stackid);
         free(current->uc.uc_stack.ss_sp);
@@ -272,10 +247,8 @@ void free_sleep_queue(void)
     }
 }
 
-int mutex_yield(thread_mutex_t *mutex)
-{
-    if (len_run_queue() <= 1)
-    {
+int mutex_yield(thread_mutex_t *mutex) {
+    if (len_run_queue() <= 1) {
         return EXIT_SUCCESS;
     }
     struct thread *current = get_first_run_queue_element();
@@ -296,17 +269,14 @@ int mutex_yield(thread_mutex_t *mutex)
     return EXIT_SUCCESS;
 }
 
-int internal_thread_yield(void)
-{
-    if (SIMPLEQ_EMPTY(&head_run_queue))
-    {
+int internal_thread_yield(void) {
+    if (SIMPLEQ_EMPTY(&head_run_queue)) {
         return -1;
     }
 
     // get the current thread
     struct thread *current = get_first_run_queue_element();
-    if (len_run_queue() == 1)
-    {
+    if (len_run_queue() == 1) {
         // no need to yield if only one running thread in queue
         return EXIT_SUCCESS;
     }
@@ -314,8 +284,7 @@ int internal_thread_yield(void)
     // remove the current thread from the queue
     remove_head_run_queue();
 
-    if (SIMPLEQ_EMPTY(&head_run_queue))
-    {
+    if (SIMPLEQ_EMPTY(&head_run_queue)) {
         // error if the queue becomes empty
         return -1;
     }
@@ -336,26 +305,22 @@ int internal_thread_yield(void)
     return EXIT_SUCCESS;
 }
 
-void insert_tail_run_queue(struct thread *thread)
-{
+void insert_tail_run_queue(struct thread *thread) {
     SIMPLEQ_INSERT_TAIL(&head_run_queue, thread, entry);
     nb_run_queue_threads++;
 }
 
-void insert_head_run_queue(struct thread *thread)
-{
+void insert_head_run_queue(struct thread *thread) {
     SIMPLEQ_INSERT_HEAD(&head_run_queue, thread, entry);
     nb_run_queue_threads++;
 }
 
-void remove_head_run_queue(void)
-{
+void remove_head_run_queue(void) {
     SIMPLEQ_REMOVE_HEAD(&head_run_queue, entry);
     nb_run_queue_threads--;
 }
 
-void remove_run_queue(struct thread *thread_to_remove)
-{
+void remove_run_queue(struct thread *thread_to_remove) {
     SIMPLEQ_REMOVE(&head_run_queue, thread_to_remove, thread, entry);
     nb_run_queue_threads--;
 }

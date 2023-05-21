@@ -9,7 +9,7 @@ enum thread_status {
 };
 
 struct thread {
-    thread_t thread;
+    thread_t thread_id;
     ucontext_t uc;
     SIMPLEQ_ENTRY(thread)
         entry;
