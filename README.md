@@ -76,7 +76,7 @@ Si l'on souhaite vérifier l'utilisation de la mémoire par les tests, on peut l
 make valgrind
 ```
 
-Il est enfin possible d'exécuter chaque test sans passer par `make`. Ceci étant installé par défaut dans `./install/bin` lors de la compilation par `make`, il faudra les lancer par la commande :
+Il est enfin possible d'exécuter chaque test sans passer par `make`. Ceux-ci étant installé par défaut dans `./install/bin` lors de la compilation par `make`, il faudra les lancer par la commande :
 
 ```sh
 LD_LIBRARY_PATH=./install/lib ./install/bin/<nom_du_test>
