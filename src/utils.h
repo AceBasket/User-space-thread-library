@@ -16,12 +16,6 @@ enum ERROR_TYPE {
     CRITIC,
 };
 
-
-enum mutex_status {
-    UNLOCK,
-    LOCK
-};
-
 // typedef SIMPLEQ_HEAD(thread_queue_t, thread) head_t;
 
 extern head_t head_run_queue;

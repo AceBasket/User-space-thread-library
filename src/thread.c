@@ -294,10 +294,10 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 #ifdef PREEMPTION
     block_sigprof();
 #endif
-    while (mutex->status == 1) {
+    while (mutex->status == LOCK) {
         mutex_yield(mutex);
     }
-    mutex->status = 1;
+    mutex->status = LOCK;
     mutex->locker = get_first_run_queue_element();
 #ifdef PREEMPTION
     unblock_sigprof();
@@ -309,7 +309,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
 #ifdef PREEMPTION
     block_sigprof();
 #endif
-    mutex->status = 0;
+    mutex->status = UNLOCK;
     mutex->locker = NULL;
 #ifdef PREEMPTION
     unblock_sigprof();
