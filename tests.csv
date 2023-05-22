@@ -18,3 +18,6 @@
 82-deadlock-many-join;
 83-deadlock-multiple-join-on-same-th;
 84-deadlock-join-all;
+sumDandC;10000
+tickets;
+triCole;1000

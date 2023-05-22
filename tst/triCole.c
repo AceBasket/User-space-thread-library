@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <assert.h>
 #include <time.h>
 #include "thread.h"
 
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
     srand(time(NULL));
     for (int i = 0; i < N; i++)
     {
-        arr[i] = rand() % 100;
+        arr[i] = rand() % N;
     }
 
     struct sort_args args = {0, N - 1};
@@ -95,6 +96,11 @@ int main(int argc, char *argv[])
     thread_t main_thread;
     thread_create(&main_thread, sort, &args);
     thread_join(main_thread, NULL);
+
+    for (int i = 1; i < N; i++)
+    {
+        assert(arr[i - 1] <= arr[i]);
+    }
 
     for (int i = 0; i < N; i++)
     {
